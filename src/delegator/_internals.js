@@ -1,0 +1,1 @@
+export const dispatchToDelegate = Symbol("fluxtuateDelegator_dispatchToDelegate");

@@ -1,0 +1,70 @@
+{
+  "name": "fluxtuate",
+  "logo": {
+    "file": "./logo.png"
+  },
+  "version": "0.0.1",
+  "description": "a javascript ES7 library for handling complex data transactions",
+  "main": "lib/index.js",
+  "scripts": {
+    "compile": "babel -d lib/ src/",
+    "prepublish": "npm run compile"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vankovilija/fluxtuate.git"
+  },
+  "keywords": [
+    "injection",
+    "dependency",
+    "flux",
+    "mvc",
+    "mediator",
+    "delegate",
+    "event",
+    "plugin",
+    "react",
+    "es7",
+    "robotlegs"
+  ],
+  "author": {
+    "name": "Ilija Vankov",
+    "email": "vankov.ilija@gmail.com",
+    "url": "https://github.com/vankovilija"
+  },
+  "contributors": [
+    {
+      "name": "Ilija Vankov",
+      "email": "vankov.ilija@gmail.com",
+      "url": "https://github.com/vankovilija"
+    }
+  ],
+  "maintainers": [
+    {
+      "name": "ilija",
+      "email": "vankov.ilija@gmail.com"
+    }
+  ],
+  "license": "MIT",
+  "babel": {
+    "presets": ["es2015", "react"],
+    "plugins": ["transform-object-rest-spread", "transform-decorators-legacy", "transform-class-properties"]
+  },
+  "dependencies": {
+    "babel-polyfill": "6.9.1",
+    "bluebird": "3.4.1",
+    "core-decorators": "0.12.3",
+    "lodash": "^4.13.1"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.10.1",
+    "babel-core": "^6.9.1",
+    "babel-loader": "^6.2.4",
+    "babel-plugin-transform-class-properties": "^6.10.2",
+    "babel-plugin-transform-decorators-legacy": "^1.3.4",
+    "babel-plugin-transform-object-rest-spread": "^6.8.0",
+    "babel-preset-es2015": "^6.9.0",
+    "babel-preset-react": "^6.5.0",
+    "webpack": "^1.13.1"
+  }
+}
