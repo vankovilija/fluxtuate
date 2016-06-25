@@ -1,6 +1,6 @@
 import {isFunction} from "lodash/lang"
 import {findIndex} from "lodash/array"
-import {applyContext} from "../context/_internals"
+import {applyCommandContext} from "../context/_internals"
 import Command from "./command"
 import {destroy, pause, resume} from "./_internals"
 
@@ -50,8 +50,8 @@ export default class CommandMap {
             setTimeout(()=>{
                 let cmds = this[eventMap][eventName].slice();
                 cmds.forEach((commandObject)=>{
-                    let command = new commandObject.command();
-                    context[applyContext](command, {payload: payload});
+                    let command = new commandObject.command(eventName, payload);
+                    context[applyCommandContext](command, {payload: payload});
                     command.execute();
                     if(commandObject.oneShot){
                         this.unmapEvent(eventName, commandObject.command);
