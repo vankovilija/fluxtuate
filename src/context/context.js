@@ -21,8 +21,6 @@ const mediatorMap = Symbol("fluxtuateContext_mediatorMap");
 const storeModels = Symbol("fluxtuateContext_storeModels");
 const storeFunction = Symbol("fluxtuateContext_storeFunction");
 const commandMap = Symbol("fluxtuateContext_commandMap");
-const controllers = Symbol("fluxtuateContext_controllers");
-const controllerDelegate = Symbol("fluxtuateContext_controllerDelegate");
 const injector = Symbol("fluxtuateContext_injector");
 const configuration = Symbol("fluxtuateContext_configuration");
 const configurations = Symbol("fluxtuateContext_configurations");
@@ -40,23 +38,9 @@ const contextDispatcher = Symbol("fluxtuateContext_dispatcher");
 const applyConfiguration = Symbol("fluxtuateContext_applyConfiguration");
 const injectAsDefault = Symbol("fluxtuateContext_injectAsDefault");
 const removeAsDefault = Symbol("fluxtuateContext_removeAsDefault");
-const attachController = Symbol("fluxtuateContext_attachController");
-const detachController = Symbol("fluxtuateContext_detachController");
 const checkDestroyed = Symbol("fluxtuateContext_checkDestroyed");
 
 const models = Symbol("fluxtuateContext_models");
-
-function findControllerInControllers(controllers, controllerClass) {
-    let foundController;
-    for(var i = 0; i < controllers.length; i++){
-        let controller = controllers[i];
-        if(controller instanceof controllerClass){
-            foundController = controller;
-        }
-    }
-
-    return foundController;
-}
 
 export default class Context {
     constructor() {
@@ -68,8 +52,6 @@ export default class Context {
         this[plugins] = [];
         this[globalPlugins] = [];
         this[children] = [];
-        this[controllers] = [];
-        this[controllerDelegate] = new PromiseDelegator();
         this[parent] = undefined;
 
         this[mediatorMap] = new MediatorMap(this);
@@ -132,13 +114,10 @@ export default class Context {
         
         this[restart] = () => {
             this[contextDispatcher].dispatch("restarting");
-            this[controllerDelegate].dispatchPromise("restarting").then(()=>{
-                this[commandMap][commandResume]();
-                this[mediatorMap][mediatorResume]();
-                this[eventDispatcher][eventResume]();
-                this[contextDispatcher].dispatch("restarted");
-                this[controllerDelegate].dispatch("restarted");
-            });
+            this[commandMap][commandResume]();
+            this[mediatorMap][mediatorResume]();
+            this[eventDispatcher][eventResume]();
+            this[contextDispatcher].dispatch("restarted");
         };
         
         this[contextMediatorCallback] = (state, mediator, view, newProps) => {
@@ -222,20 +201,6 @@ export default class Context {
         this[configurations] = [];
         this[configured] = false;
 
-        this[attachController] = (controller) => {
-            this[controllerDelegate].attachDelegate(controller);
-            if(isFunction(controller.attached)) {
-                controller.attached();
-            }
-        };
-
-        this[detachController] = (controller) => {
-            this[controllerDelegate].detachDelegate(controller);
-            if(isFunction(controller.detached)) {
-                controller.detached();
-            }
-        };
-
         this[addParent] = (parentContext) => {
             if (parentContext) {
                 parentContext[eventDispatcher].addChild(this[eventDispatcher]);
@@ -317,36 +282,6 @@ export default class Context {
             config.configure();
             this[configurations].push(config);
         };
-    }
-
-    attachController(controllerClass){
-        if(findControllerInControllers(this[controllers], controllerClass)) return;
-
-        let controller = new controllerClass();
-
-        this[controllers].push(controller);
-
-        if(this[configured]){
-            this[attachController](controller);
-        }
-
-        return this;
-    }
-
-    detachController(controllerClass) {
-        let controller = findControllerInControllers(this[controllers], controllerClass);
-
-        if(!controller) return;
-
-        this[detachController](controller);
-
-        this[controllers].splice(this[controllers].indexOf(controller), 1);
-
-        return this;
-    }
-
-    hasController(controllerClass) {
-        return findControllerInControllers(this[controllers], controllerClass)?true:false;
     }
 
 
@@ -455,7 +390,7 @@ export default class Context {
             throw new Error("Plugins must contain a initialize method!");
         }
         let p = new pluginClass();
-        this[applyContext](p, {options: options}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined, {controllerDelegate: this[controllerDelegate], contextDispatcher: this[contextDispatcher]});
+        this[applyContext](p, {options: options}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined, {contextDispatcher: this[contextDispatcher]});
         this[plugins].push(p);
         p.initialize(this[injectAsDefault], this[removeAsDefault]);
         
@@ -513,36 +448,23 @@ export default class Context {
         }else{
             this[store] = this[parent][store];
         }
-
-        let conts = this[controllers].slice();
-        conts.forEach((controller)=>{
-            this[attachController](controller);
-        });
-
-        this[controllerDelegate].dispatch("initializing");
+        
         this[configured] = true;
 
         let configs = this[configuration];
         configs.forEach(this[applyConfiguration]);
 
-        conts.forEach(this[applyContext]);
-
         this[contextDispatcher].dispatch("started");
-        this[controllerDelegate].dispatch("initiated");
-
     }
     
     stop() {
         this[checkDestroyed]();
 
         this[contextDispatcher].dispatch("stopping");
-        this[controllerDelegate].dispatchPromise("stopping").then(()=>{
-            this[commandMap][commandPause](this);
-            this[mediatorMap][mediatorPause](this);
-            this[eventDispatcher][eventPause](this);
-            this[contextDispatcher].dispatch("stopped");
-            this[controllerDelegate].dispatch("stopped");
-        });
+        this[commandMap][commandPause](this);
+        this[mediatorMap][mediatorPause](this);
+        this[eventDispatcher][eventPause](this);
+        this[contextDispatcher].dispatch("stopped");
     }
 
     get children() {
@@ -551,10 +473,6 @@ export default class Context {
     
     get parent() {
         return this[parent];
-    }
-    
-    get controllers() {
-        return this[controllers].slice();
     }
     
     isChildOf(context) {
@@ -590,11 +508,6 @@ export default class Context {
         while(this[storeModels].length > 0) {
             this[store].unmapModelKey(this[storeModels].pop());
         }
-
-        this[controllerDelegate].dispatch("destroy");
-        this[controllerDelegate].destroy();
-        this[controllerDelegate] = undefined;
-        this[controllers] = [];
 
         this[contextDispatcher].dispatch("destroying");
         this[commandMap][commandDestroy]();
