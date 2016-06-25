@@ -1,10 +1,12 @@
 import EventDispatcher from "../event-dispatcher"
 import PromiseDelegator from "../delegator/promise-delegator"
 import MediatorMap from "../mediator/mediator-map"
+import MediatorModelWrapper from "../mediator/mediator-model-wrapper"
 import Store from "../model/store"
 import CommandMap from "../command/command-map"
+import CommandModelWrapper from "../command/command-model-wrapper"
 import Injector from "../inject/injector"
-import {applyContext, contextMediatorCallback, store} from "./_internals"
+import {applyContext, applyCommandContext, applyMediatorContext, contextMediatorCallback, store} from "./_internals"
 import {isFunction} from "lodash/lang"
 
 import {getInjectValue, globalValues, defaultValues, isPropertyInjection} from "../inject/_internals"
@@ -42,6 +44,8 @@ const attachController = Symbol("fluxtuateContext_attachController");
 const detachController = Symbol("fluxtuateContext_detachController");
 const checkDestroyed = Symbol("fluxtuateContext_checkDestroyed");
 
+const models = Symbol("fluxtuateContext_models");
+
 function findControllerInControllers(controllers, controllerClass) {
     let foundController;
     for(var i = 0; i < controllers.length; i++){
@@ -58,6 +62,7 @@ export default class Context {
     constructor() {
         this[destroyed] = false;
 
+        this[models] = {};
         this[storeModels] = [];
         this[eventDispatcher] = new EventDispatcher();
         this[plugins] = [];
@@ -97,6 +102,26 @@ export default class Context {
 
         this[applyContext] = (instance, ...injections) => {
             this[injector].inject.apply(this[injector], [instance, ...injections]);
+        };
+
+        this[applyMediatorContext] = (instance, ...injections) => {
+            let modelInjections = {};
+
+            for(let key in this[models]) {
+                modelInjections[key] = new MediatorModelWrapper(this[models][key].modelInstance, this, instance);
+            }
+
+            this[applyContext].apply(this, [instance, modelInjections, ...injections]);
+        };
+
+        this[applyCommandContext] = (instance, ...injections) => {
+            let modelInjections = {};
+            
+            for(let key in this[models]) {
+                modelInjections[key] = new CommandModelWrapper(this[models][key].modelInstance, this, instance);
+            }
+            
+            this[applyContext].apply(this, [instance, modelInjections, ...injections]);
         };
 
         this[checkDestroyed] = () => {
@@ -280,7 +305,8 @@ export default class Context {
             }
 
             let model = this[store].mapModel(modelClass).toKey(storeName);
-            this[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "property");
+            this[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
+            this[models][injectionKey] = model;
 
             this[storeModels].push(storeName);
         };

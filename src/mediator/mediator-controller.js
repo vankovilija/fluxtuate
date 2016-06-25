@@ -1,7 +1,7 @@
 import chainFunctions from "../utils/chainFunctions"
 import {isFunction} from "lodash/lang"
 import {destroy, fluxtuateNameProperty, fluxtuateUpdateFunction, mediate} from "./_internals"
-import {applyContext} from "../context/_internals"
+import {applyMediatorContext} from "../context/_internals"
 
 const props = Symbol("props");
 const mediator = Symbol("fluxtuateController_mediator");
@@ -79,7 +79,7 @@ export default class MediatorController {
             let creationResult = this[context][contextMediatorCallback]("created", med, view);
             if(creationResult === false) return;
             
-            this[context][applyContext](med, {view: view}, creationResult.injections);
+            this[context][applyMediatorContext](med, {view: view}, creationResult.injections);
 
             if(isFunction(med.init)){
                 med.init();
