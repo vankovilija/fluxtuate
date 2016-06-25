@@ -1,5 +1,5 @@
 import EventDispatcher from "../event-dispatcher"
-import PromiseDelegator from "../delegator/promise-delegator"
+import chainTwoFunction from "../utils/chainFunctions"
 import MediatorMap from "../mediator/mediator-map"
 import MediatorModelWrapper from "../mediator/mediator-model-wrapper"
 import Store from "../model/store"
@@ -93,6 +93,18 @@ export default class Context {
                 modelInjections[key] = new MediatorModelWrapper(this[models][key].modelInstance, this, instance);
             }
 
+            let removeInjections = ()=>{
+                for(let key in modelInjections) {
+                    modelInjections[key].destroy();
+                }
+            };
+
+            if(instance.destroy) {
+                instance.destroy = chainTwoFunction(instance.destroy, removeInjections);
+            }else{
+                instance.destroy = removeInjections;
+            }
+
             this[applyContext].apply(this, [instance, modelInjections, ...injections]);
         };
 
@@ -101,6 +113,14 @@ export default class Context {
             
             for(let key in this[models]) {
                 modelInjections[key] = new CommandModelWrapper(this[models][key].modelInstance, this, instance);
+            }
+
+            if(instance.then){
+                instance.then(()=>{
+                    for(let key in modelInjections) {
+                        modelInjections[key].destroy();
+                    }
+                });
             }
             
             this[applyContext].apply(this, [instance, modelInjections, ...injections]);
