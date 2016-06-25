@@ -304,6 +304,9 @@ export default class Context {
         };
     }
 
+    dispatch(eventName, eventPayload) {
+        this[eventDispatcher].dispatch(eventName, eventPayload);
+    }
 
     addChild(context) {
         this[checkDestroyed]();
