@@ -1,8 +1,10 @@
+import EventDispatcher from "../event-dispatcher"
 import {isFunction} from "lodash/lang"
 import {findIndex} from "lodash/array"
 import {applyCommandContext} from "../context/_internals"
 import Command from "./command"
 import {destroy, pause, resume} from "./_internals"
+import Promise from "bluebird"
 
 const eventMap = Symbol("fluxtuateCommandMap_eventMap");
 const addCommand = Symbol("fluxtuateCommandMap_addCommand");
@@ -10,7 +12,7 @@ const executeCommandFromEvent = Symbol("fluxtuateCommandMap_executeCommandFromEv
 const eventDispatcher = Symbol("fluxtuateCommandMap_eventDispatcher");
 const isPaused = Symbol("fluxtuateCommandMap_isPaused");
 
-export default class CommandMap {
+export default class CommandMap extends EventDispatcher{
     constructor(ed, context) {
         this[eventMap] = {};
         this[isPaused] = false;
@@ -47,20 +49,38 @@ export default class CommandMap {
         this[executeCommandFromEvent] = (eventName, payload) => {
             if(this[isPaused]) return;
 
+            let commandMappings = this[eventMap][eventName].slice();
+            let commands = [];
+            commandMappings.forEach((commandObject)=>{
+                let command = new commandObject.command(eventName, payload);
+                context[applyCommandContext](command, {payload: payload});
+                commands.push(command);
+            });
+
             setTimeout(()=>{
-                let cmds = this[eventMap][eventName].slice();
-                cmds.forEach((commandObject)=>{
-                    let command = new commandObject.command(eventName, payload);
-                    context[applyCommandContext](command, {payload: payload});
+                commands.forEach((command, index)=>{
                     command.execute();
-                    if(commandObject.oneShot){
-                        this.unmapEvent(eventName, commandObject.command);
+                    if(commandMappings[index].oneShot){
+                        this.unmapEvent(eventName, commandMappings[index].command);
                     }
                 });
             }, 0);
+
+            if(commands.length > 0)
+                Promise.all(commands).then(()=>{
+                    this.dispatch("complete");
+                });
+            else
+                this.dispatch("complete");
         };
 
         this[eventDispatcher] = ed;
+    }
+
+    onComplete(callback){
+        return this.addListener("complete", (ev, payload)=>{
+            callback(payload)
+        });
     }
 
     mapEvent(eventName, command){
