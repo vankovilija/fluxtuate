@@ -7,6 +7,7 @@ export const mediate = Symbol("fluxtuateInternals__mediate");
 export const pause = Symbol("fluxtuateInternals__pause");
 export const resume = Symbol("fluxtuateInternals__resume");
 export const destroy = Symbol("fluxtuateInternals__destroy");
+export const mediator = Symbol("fluxtuateInternals__mediator");
 
 //delegate functions
 export const viewCreated = Symbol("fluxtuateInternals__viewCreated");
