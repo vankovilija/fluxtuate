@@ -9,7 +9,6 @@ import reservedWords from "./reserved"
 const data = Symbol("fluxtuateModel_data");
 const calculatedFields = Symbol("fluxtuateModel_calculatedFields");
 const dispatchUpdate = Symbol("fluxtuateModel_dispatchUpdate");
-const dispatchTimer = Symbol("fluxtuateModel_dispatchTimer");
 const configureDefaultValues = Symbol("fluxtuateModel_configureDefaultValues");
 const isDefault = Symbol("fluxtuateModel_isDefault");
 
@@ -130,16 +129,9 @@ export default class Model extends RetainEventDispatcher {
         });
 
         this[dispatchUpdate] = function (elementR) {
-            if (this[dispatchTimer]) {
-                clearTimeout(this[dispatchTimer]);
-            }
-
-            this[dispatchTimer] = setTimeout(()=> {
-                let payload = {data: this.modelData, name: this.modelName};
-                payload[elementResponsible] = elementR;
-                this.dispatch("update", payload);
-                this[dispatchTimer] = undefined;
-            }, 0);
+            let payload = {data: this.modelData, name: this.modelName};
+            payload[elementResponsible] = elementR;
+            this.dispatch("update", payload);
         }
     }
 
@@ -224,9 +216,5 @@ export default class Model extends RetainEventDispatcher {
     destroy() {
         this[destroy]();
         this[data] = {};
-        if (this[dispatchTimer]) {
-            clearTimeout(this[dispatchTimer]);
-            this[dispatchTimer] = undefined;
-        }
     }
 }

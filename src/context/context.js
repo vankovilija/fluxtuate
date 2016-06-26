@@ -13,6 +13,7 @@ import {getInjectValue, globalValues, defaultValues, isPropertyInjection} from "
 import {destroy as commandDestroy, pause as commandPause, resume as commandResume} from "../command/_internals"
 import {destroy as mediatorDestroy, pause as mediatorPause, resume as mediatorResume} from "../mediator/_internals"
 import {destroy as eventDestroy, pause as eventPause, resume as eventResume} from "../event-dispatcher/_internals"
+import GUID from "../utils/guid"
 
 const destroyed = Symbol("fluxtuateContext_destroyed");
 const eventDispatcher = Symbol("fluxtuateContext_eventDispatcher");
@@ -41,12 +42,14 @@ const removeAsDefault = Symbol("fluxtuateContext_removeAsDefault");
 const checkDestroyed = Symbol("fluxtuateContext_checkDestroyed");
 const commandInjections = Symbol("fluxtuateContext_commandInjections");
 const mediatorInjections = Symbol("fluxtuateContext_mediatorInjections");
+const contextName = Symbol("fluxtuateContext_contextName");
 
 const models = Symbol("fluxtuateContext_models");
 
 export default class Context {
     constructor() {
         this[destroyed] = false;
+        this[contextName] = "";
 
         this[models] = {};
         this[storeModels] = [];
@@ -71,6 +74,12 @@ export default class Context {
         Object.defineProperty(this, "mediatorMap", {
             get() {
                 return this[commandMap];
+            }
+        });
+
+        Object.defineProperty(this, "contextName", {
+            get() {
+                return this[contextName];
             }
         });
 
@@ -309,7 +318,7 @@ export default class Context {
                 injectionKey = storeName;
             }
 
-            let model = this[store].mapModel(modelClass).toKey(storeName);
+            let model = this[store].mapModel(modelClass, this).toKey(storeName);
             this[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
             this[models][injectionKey] = model;
 
@@ -392,6 +401,10 @@ export default class Context {
             context: this,
             childContext: context
         });
+    }
+
+    setName(name) {
+        this[contextName] = name;
     }
     
     config(configurationClass) {
@@ -497,6 +510,10 @@ export default class Context {
         let configs = this[configuration];
         configs.forEach(this[applyConfiguration]);
 
+        if(!this[contextName]){
+            this[contextName] = GUID.generateGUID();
+        }
+        
         this[contextDispatcher].dispatch("started");
     }
     

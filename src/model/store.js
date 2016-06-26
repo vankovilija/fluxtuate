@@ -1,4 +1,5 @@
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
+import {elementResponsible} from "./_internals"
 import {destroy, eventMap} from "../event-dispatcher/_internals"
 const models = Symbol("fluxtuateStore_models");
 const modelsRetainCount = Symbol("fluxtuateStore_modelCount");
@@ -12,15 +13,11 @@ export default class Store extends RetainEventDispatcher{
         this[models] = {};
         this[modelsRetainCount] = {};
 
-        this[dispatchUpdate] = () => {
-            if (this[dispatchTimer]) {
-                clearTimeout(this[dispatchTimer]);
-            }
-
-            this[dispatchTimer] = setTimeout(()=> {
-                this.dispatch("update", {data: this.data, models: this.models});
-                this[dispatchTimer] = undefined;
-            }, 0);
+        this[dispatchUpdate] = (elementR) => {
+            let payload = {data: this.data, models: this.models};
+            payload[elementResponsible] = elementR;
+            this.dispatch("update", payload);
+            this[dispatchTimer] = undefined;
         }
     }
 
@@ -37,7 +34,7 @@ export default class Store extends RetainEventDispatcher{
         });
     }
 
-    mapModel(modelClass){
+    mapModel(modelClass, context){
         let self = this;
 
         return {
@@ -50,7 +47,9 @@ export default class Store extends RetainEventDispatcher{
                     return self[models][key];
                 } 
                 let model = {modelInstance: new modelClass(key), modelClass: modelClass};
-                model.listener = model.modelInstance.onUpdate(self[dispatchUpdate]);
+                model.listener = model.modelInstance.onUpdate((payload)=>{
+                    self[dispatchUpdate](payload[elementResponsible]);
+                });
                 self[modelsRetainCount][key] = 1;
                 Object.defineProperty(self[models], key, {
                     get() {
@@ -59,7 +58,7 @@ export default class Store extends RetainEventDispatcher{
                     configurable: true
                 });
 
-                self[dispatchUpdate]();
+                self[dispatchUpdate](context);
 
                 return model;
             }
@@ -97,7 +96,7 @@ export default class Store extends RetainEventDispatcher{
         return modelData;
     }
 
-    clearStore() {
+    clearStore(responsibleElement) {
         let modelKeys = Object.getOwnPropertyDescriptors(this[models]);
         for(let key in modelKeys) {
             this[models][key].modelInstance.destroy();
@@ -107,7 +106,7 @@ export default class Store extends RetainEventDispatcher{
         this[models] = {};
         this[modelsRetainCount] = {};
 
-        this[dispatchUpdate]();
+        this[dispatchUpdate](responsibleElement || this);
     }
 
     setData(modelData) {

@@ -3,6 +3,8 @@ import getOwnKeys from "../utils/getOwnKeys"
 import reserved from "../model/reserved"
 
 const listeners = Symbol("fluxtuateModelWrapper_listeners");
+const dispatchUpdate = Symbol("fluxtuateModelWrapper_dispatchUpdate");
+const updateTimer = Symbol("fluxtuateModelWrapper_updateTimer");
 
 
 export default class ModelWrapper {
@@ -15,6 +17,19 @@ export default class ModelWrapper {
             if(this[destroyed]){
                 throw new Error("You are trying to access a destroyed model.");
             }
+        };
+
+        this[dispatchUpdate] = (callback, payload)=>{
+            if(this[updateTimer]) {
+                clearTimeout(this[updateTimer]);
+                this[updateTimer] = undefined;
+            }
+
+            if(this[destroyed]) return;
+
+            this[updateTimer] = setTimeout(()=>{
+                callback({model: this, data: payload.data, name: payload.name});
+            }, 0)
         };
 
         this[updateable] = false;
@@ -68,9 +83,7 @@ export default class ModelWrapper {
     onUpdate(callback) {
         this[checkDestroyed]();
 
-        let listener = this[model].onUpdate((payload)=>{
-            callback(Object.assign({model: this}, payload));
-        });
+        let listener = this[model].onUpdate(this[dispatchUpdate].bind(this, callback));
         let removeFunction = listener.remove;
         let index = this[listeners].length;
         this[listeners].push(listener);
