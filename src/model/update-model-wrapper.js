@@ -10,16 +10,16 @@ export default class UpdateModelWrapper extends ModelWrapper{
 
     update(data) {
         this[checkDestroyed]();
-        this[model].update(data);
+        this[model].update(data, this);
     }
 
     setValue(value) {
         this[checkDestroyed]();
-        this[model].setValue(value);
+        this[model].setValue(value, this);
     }
 
     clear() {
         this[checkDestroyed]();
-        this[model].clear();
+        this[model].clear(this);
     }
 } 

@@ -16,7 +16,7 @@ export default class ModelWrapper {
                 throw new Error("You are trying to access a destroyed model.");
             }
         };
-        
+
         this[updateable] = false;
 
         let keys = getOwnKeys(wrappedModel);
@@ -31,9 +31,12 @@ export default class ModelWrapper {
                     if(!this[updateable]){
                         throw new Error("You can only set values to a model from a command!");
                     }
-                    
-                    wrappedModel[key] = value;
-                }
+
+                    let updateObject = {};
+                    updateObject[key] = value;
+                    this.update(updateObject);
+                },
+                configurable: false
             });
         });
     }
@@ -65,7 +68,9 @@ export default class ModelWrapper {
     onUpdate(callback) {
         this[checkDestroyed]();
 
-        let listener = this[model].onUpdate(callback);
+        let listener = this[model].onUpdate((payload)=>{
+            callback(Object.assign({model: this}, payload));
+        });
         let removeFunction = listener.remove;
         let index = this[listeners].length;
         this[listeners].push(listener);

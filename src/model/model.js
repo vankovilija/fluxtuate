@@ -1,6 +1,6 @@
 import getOwnKeys from "../utils/getOwnKeys"
 import getOwnPropertyDescriptors from "../utils/getOwnPropertyDescriptors"
-import {primaryKey, properties} from "./_internals"
+import {primaryKey, properties, elementResponsible} from "./_internals"
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {destroy} from "../event-dispatcher/_internals"
 import {isFunction, isObject, isArray, isDate} from "lodash/lang"
@@ -62,17 +62,6 @@ export default class Model extends RetainEventDispatcher {
                     Object.defineProperty(this, this[properties][k].modelKey, {
                         get() {
                             return self[data][k];
-                        },
-                        set(val) {
-                            if (self[data][k] && isFunction(self[data][k].update)) {
-                                self[data][k].update(val);
-                            } else {
-                                self[data][k] = val;
-                            }
-
-                            this[properties][k][isDefault] = false;
-
-                            this[dispatchUpdate]();
                         },
                         configurable: false
                     });
@@ -140,24 +129,26 @@ export default class Model extends RetainEventDispatcher {
             }
         });
 
-        this[dispatchUpdate] = function () {
+        this[dispatchUpdate] = function (elementR) {
             if (this[dispatchTimer]) {
                 clearTimeout(this[dispatchTimer]);
             }
 
             this[dispatchTimer] = setTimeout(()=> {
-                this.dispatch("update", {data: this.modelData, name: this.modelName});
+                let payload = {data: this.modelData, name: this.modelName};
+                payload[elementResponsible] = elementR;
+                this.dispatch("update", payload);
                 this[dispatchTimer] = undefined;
             }, 0);
         }
     }
 
-    setValue(value) {
+    setValue(value, elementResponsible) {
         this.clear();
-        this.update(value);
+        this.update(value, elementResponsible);
     }
 
-    update(updateData) {
+    update(updateData, elementResponsible) {
         if (updateData.cleanData) {
             updateData = updateData.cleanData;
         }else if(updateData.modelData) {
@@ -198,17 +189,6 @@ export default class Model extends RetainEventDispatcher {
                     get() {
                         return self[data][key];
                     },
-                    set(val) {
-                        if (self[data][key] && isFunction(self[data][key].update)) {
-                            self[data][key].update(val);
-                        } else {
-                            self[data][key] = val;
-                        }
-
-                        this[properties][key][isDefault] = false;
-
-                        this[dispatchUpdate]();
-                    },
                     configurable: false
                 });
             }
@@ -216,12 +196,15 @@ export default class Model extends RetainEventDispatcher {
             this[properties][key][isDefault] = false;
         }
 
-        this[dispatchUpdate]();
+        this[dispatchUpdate](elementResponsible);
     }
 
-    clear() {
+    clear(elementResponsible) {
         this[data] = {};
         this[configureDefaultValues]();
+        if(elementResponsible){
+            this[dispatchUpdate](elementResponsible);
+        }
     }
 
     compare(model) {
