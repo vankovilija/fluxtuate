@@ -318,7 +318,7 @@ export default class Context {
 
         this[applyConfiguration] = (Config)=>{
             let config = new Config();
-            this[applyContext](config, {store: this[storeFunction]}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined);
+            this[applyContext](config, this[mediatorInjections], this[commandInjections], {store: this[storeFunction]}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined);
             config.configure();
             this[configurations].push(config);
         };
@@ -433,7 +433,7 @@ export default class Context {
             throw new Error("Plugins must contain a initialize method!");
         }
         let p = new pluginClass();
-        this[applyContext](p, {options: options}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined, {contextDispatcher: this[contextDispatcher]});
+        this[applyContext](p, this[mediatorInjections], this[commandInjections], {options: options}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined, {contextDispatcher: this[contextDispatcher]});
         this[plugins].push(p);
         p.initialize(this[injectAsDefault], this[removeAsDefault]);
         
