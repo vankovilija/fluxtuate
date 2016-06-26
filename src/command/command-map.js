@@ -67,20 +67,30 @@ export default class CommandMap extends EventDispatcher{
                 });
             }, 0);
 
-            if(commands.length > 0)
-                Promise.all(commands).then(()=>{
-                    this.dispatch("complete");
+            if(commands.length > 0) {
+                let completeCount = 0;
+                commands.forEach((command)=> {
+                    command.onComplete(()=> {
+                        completeCount++;
+                        if(commands.length === completeCount) {
+                            this.dispatch("complete", {event: eventName, payload: payload});
+                        }
+                    });
                 });
-            else
-                this.dispatch("complete");
+            } else {
+                this.dispatch("complete", {event: eventName, payload: payload});
+            }
         };
 
         this[eventDispatcher] = ed;
     }
 
     onComplete(callback){
-        return this.addListener("complete", (ev, payload)=>{
-            callback(payload)
+        if(!callback) return;
+
+        let listener = this.addListener("complete", (ev, payload)=>{
+            callback(payload.event, payload.payload);
+            listener.remove();
         });
     }
 
