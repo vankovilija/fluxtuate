@@ -30,7 +30,7 @@ export default class CommandMap extends EventDispatcher{
             this[eventMap] = {};
         };
 
-        this[addCommand] = (eventName, command, oneShot)=>{
+        this[addCommand] = (eventName, command, commandName, oneShot)=>{
             if((command === Command) || !(command.prototype instanceof Command))
                 throw new Error("Commands must extend the Command class!");
 
@@ -39,8 +39,12 @@ export default class CommandMap extends EventDispatcher{
             }
 
             if(!this[eventMap][eventName]) this[eventMap][eventName] = [];
+
+            if(!commandName) commandName = eventName + " (" + this[eventMap][eventName].length + ")";
+
             this[eventMap][eventName].push({
                 command: command,
+                commandName: commandName,
                 oneShot: oneShot,
                 listener: this[eventDispatcher].addListener(eventName, this[executeCommandFromEvent])
             });
@@ -60,6 +64,13 @@ export default class CommandMap extends EventDispatcher{
 
             setTimeout(()=>{
                 commands.forEach((command, index)=>{
+                    if(!command.commandName) {
+                        Object.defineProperty(command, "commandName", {
+                            get() {
+                                return context.contextName + "->" + commandMappings[index].commandName;
+                            }
+                        });
+                    }
                     command.execute();
                     if(commandMappings[index].oneShot){
                         this.unmapEvent(eventName, commandMappings[index].command);
@@ -97,12 +108,12 @@ export default class CommandMap extends EventDispatcher{
     mapEvent(eventName, command){
         let self = this;
         let r = {
-            toCommand(command) {
-                self[addCommand](eventName, command, false);
+            toCommand(command, commandName) {
+                self[addCommand](eventName, command, commandName, false);
                 return self;
             },
-            once(command){
-                self[addCommand](eventName, command, true);
+            once(command, commandName){
+                self[addCommand](eventName, command, commandName, true);
                 return self;
             }
         };
