@@ -1,14 +1,26 @@
 import {event, eventPayload} from "./_internals"
 import Promise from "bluebird"
 
-export default class Command extends Promise{
+const releasePromise = Symbol("fluxtuateCommand_releasePromise");
+
+export default class Command {
     constructor(responsibleEvent, responsibleEventPayload) {
-        super((release)=>{
+        this[releasePromise] = new Promise((release)=>{
             Object.defineProperty(this, "release", {
                 get() {
                     return release;
                 }
             });
+        });
+
+        Object.defineProperty(this, "onComplete", {
+            get() {
+                return (handler)=>{
+                    this[releasePromise].then(()=>{
+                        handler();
+                    });
+                };
+            }
         });
 
         this[event] = responsibleEvent;
