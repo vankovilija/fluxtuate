@@ -14,6 +14,7 @@ const isPaused = Symbol("fluxtuateCommandMap_isPaused");
 
 export default class CommandMap extends EventDispatcher{
     constructor(ed, context) {
+        super();
         this[eventMap] = {};
         this[isPaused] = false;
 
