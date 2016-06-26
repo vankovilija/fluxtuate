@@ -1,4 +1,4 @@
-import {model, context, destroyed, checkDestroyed} from "./_internals"
+import {model, context, destroyed, checkDestroyed, updateable} from "./_internals"
 import getOwnKeys from "../utils/getOwnKeys"
 import reserved from "../model/reserved"
 
@@ -16,6 +16,8 @@ export default class ModelWrapper {
                 throw new Error("You are trying to access a destroyed model.");
             }
         };
+        
+        this[updateable] = false;
 
         let keys = getOwnKeys(wrappedModel);
         keys.forEach((key)=>{
@@ -26,6 +28,10 @@ export default class ModelWrapper {
                     return wrappedModel[key];
                 },
                 set(value){
+                    if(!this[updateable]){
+                        throw new Error("You can only set values to a model from a command!");
+                    }
+                    
                     wrappedModel[key] = value;
                 }
             });

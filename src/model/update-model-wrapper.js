@@ -1,7 +1,13 @@
-import {model, checkDestroyed} from "./_internals"
+import {model, checkDestroyed, updateable} from "./_internals"
 import ModelWrapper from "./model-wrapper"
 
 export default class UpdateModelWrapper extends ModelWrapper{
+    constructor() {
+        super();
+
+        this[updateable] = true;
+    }
+    
     update(data) {
         this[checkDestroyed]();
         this[model].update(data);
