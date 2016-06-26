@@ -39,6 +39,8 @@ const applyConfiguration = Symbol("fluxtuateContext_applyConfiguration");
 const injectAsDefault = Symbol("fluxtuateContext_injectAsDefault");
 const removeAsDefault = Symbol("fluxtuateContext_removeAsDefault");
 const checkDestroyed = Symbol("fluxtuateContext_checkDestroyed");
+const commandInjections = Symbol("fluxtuateContext_commandInjections");
+const mediatorInjections = Symbol("fluxtuateContext_mediatorInjections");
 
 const models = Symbol("fluxtuateContext_models");
 
@@ -52,6 +54,8 @@ export default class Context {
         this[plugins] = [];
         this[globalPlugins] = [];
         this[children] = [];
+        this[commandInjections] = {};
+        this[mediatorInjections] = {};
         this[parent] = undefined;
 
         this[mediatorMap] = new MediatorMap(this);
@@ -75,6 +79,10 @@ export default class Context {
                 this[injector].mapKey(key).toValue(value);
             }else if(type === "property") {
                 this[injector].mapKey(key).toProperty(value.object, value.property);
+            }else if(type === "command") {
+                this[commandInjections][key] = value;
+            }else if(type === "mediator") {
+                this[mediatorInjections][key] = value;
             }
             this[injector][defaultValues][key] = description;
 
@@ -117,7 +125,7 @@ export default class Context {
                 instance.destroy = removeInjections;
             }
 
-            this[applyContext].apply(this, [instance, modelInjections, ...injections]);
+            this[applyContext].apply(this, [instance, modelInjections, this[mediatorInjections], ...injections]);
         };
 
         this[applyCommandContext] = (instance, ...injections) => {
@@ -135,7 +143,7 @@ export default class Context {
                 });
             }
             
-            this[applyContext].apply(this, [instance, modelInjections, ...injections]);
+            this[applyContext].apply(this, [instance, modelInjections, this[commandInjections], ...injections]);
         };
 
         this[checkDestroyed] = () => {
