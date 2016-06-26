@@ -58,6 +58,18 @@ export default class Context {
         this[commandMap] = new CommandMap(this[eventDispatcher], this);
         this[injector] = new Injector(this, this[eventDispatcher], this[mediatorMap], this[commandMap]);
 
+        Object.defineProperty(this, "commandMap", {
+            get() {
+                return this[commandMap];
+            }
+        });
+
+        Object.defineProperty(this, "mediatorMap", {
+            get() {
+                return this[commandMap];
+            }
+        });
+
         this[injectAsDefault] = (key, value, description, isGlobal = false, type = "value") => {
             if(type === "value") {
                 this[injector].mapKey(key).toValue(value);

@@ -113,4 +113,8 @@ export default class CommandMap extends EventDispatcher{
         this[eventMap][eventName][index].listener.remove();
         this[eventMap][eventName].splice(index, 1);
     }
+
+    hasEvent(eventName) {
+        return Boolean(this[eventMap][eventName]);
+    }
 }
