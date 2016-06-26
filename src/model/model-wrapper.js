@@ -1,5 +1,9 @@
 import {model, context, destroyed, checkDestroyed} from "./_internals"
+import getOwnKeys from "../utils/getOwnKeys"
+import reserved from "../model/reserved"
+
 const listeners = Symbol("fluxtuateModelWrapper_listeners");
+
 
 export default class ModelWrapper {
     constructor (wrappedModel, holderContext) {
@@ -12,6 +16,20 @@ export default class ModelWrapper {
                 throw new Error("You are trying to access a destroyed model.");
             }
         };
+
+        let keys = getOwnKeys(wrappedModel);
+        keys.forEach((key)=>{
+            if(reserved.indexOf(key) !== -1) return;
+
+            Object.defineProperty(this, key, {
+                get(){
+                    return wrappedModel[key];
+                },
+                set(value){
+                    wrappedModel[key] = value;
+                }
+            });
+        });
     }
 
     get modelData() {
