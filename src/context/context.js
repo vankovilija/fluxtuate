@@ -1,5 +1,6 @@
 import EventDispatcher from "../event-dispatcher"
 import chainTwoFunction from "../utils/chainFunctions"
+import ContextModelWrapper from "../model/model-wrapper"
 import MediatorMap from "../mediator/mediator-map"
 import MediatorModelWrapper from "../mediator/mediator-model-wrapper"
 import Store from "../model/store"
@@ -306,23 +307,32 @@ export default class Context {
             });
         };
 
-        this[storeFunction] = (modelClass, storeName, injectionKey, description) => {
-            if(this[storeModels].indexOf(storeName) !== -1) {
-                throw new Error(`Stores can only be registered once per context, you are trying to register the store ${storeName} twice!`)
-            }
-            if(!description) {
-                description = `A key to get the ${storeName}`
-            }
+        this[storeFunction] = {
+            addModel(modelClass, storeName, injectionKey, description) {
+                if(this[storeModels].indexOf(storeName) !== -1) {
+                    throw new Error(`Stores can only be registered once per context, you are trying to register the store ${storeName} twice!`)
+                }
+                if(!description) {
+                    description = `A key to get the ${storeName}`
+                }
 
-            if(!injectionKey) {
-                injectionKey = storeName;
+                if(!injectionKey) {
+                    injectionKey = storeName;
+                }
+
+                let model = this[store].mapModel(modelClass, this).toKey(storeName);
+                this[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
+                this[models][injectionKey] = Object.assign({}, model, {wrapper: new ContextModelWrapper(model)});
+
+                this[storeModels].push(storeName);
+            },
+            getModel(modelName) {
+                if(!this[models][modelName]){
+                    return;
+                }
+
+                return this[models][modelName].wrapper;
             }
-
-            let model = this[store].mapModel(modelClass, this).toKey(storeName);
-            this[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
-            this[models][injectionKey] = model;
-
-            this[storeModels].push(storeName);
         };
 
         this[applyConfiguration] = (Config)=>{
@@ -513,7 +523,7 @@ export default class Context {
         if(!this[contextName]){
             this[contextName] = GUID.generateGUID();
         }
-        
+
         this[contextDispatcher].dispatch("started");
     }
     
@@ -567,6 +577,10 @@ export default class Context {
 
         while(this[storeModels].length > 0) {
             this[store].unmapModelKey(this[storeModels].pop());
+        }
+
+        for(let key in this[models]){
+            this[models][key].wrapper.destroy();
         }
 
         this[contextDispatcher].dispatch("destroying");
