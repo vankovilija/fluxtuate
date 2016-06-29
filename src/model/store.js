@@ -40,7 +40,7 @@ export default class Store extends RetainEventDispatcher{
         return {
             toKey(key) {
                 if(self[models][key]){
-                    if(!(self[models][key].modelClass !== modelClass)){
+                    if(self[models][key].modelClass !== modelClass){
                         throw new Error(`You are trying to swap the model key ${key} with a different model value, model keys are global and must be unique in the context-tree!`);
                     }
                     self[modelsRetainCount][key] ++;
