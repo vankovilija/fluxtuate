@@ -38,9 +38,13 @@ export default class Mediator {
             }
             if(this[autoDispatches]) {
                 this[autoDispatches].forEach((autoDispatch)=>{
-                    this[autoDispatch.key] = (...args) => {
-                        dispatchFunction(autoDispatch.dispatchKey, autoDispatch.dispatchFunction.apply(this, args));
-                    }
+                    Object.defineProperty(this, autoDispatch.key, {
+                        value: (...args) => {
+                            dispatchFunction(autoDispatch.dispatchKey, autoDispatch.dispatchFunction.apply(this, args));
+                        },
+                        configurable: false,
+                        writable: false
+                    });
                 });
             }
             if(isFunction(this.destroy)){
