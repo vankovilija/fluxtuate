@@ -9,6 +9,7 @@ import CommandModelWrapper from "../command/command-model-wrapper"
 import Injector from "../inject/injector"
 import {applyContext, applyCommandContext, applyMediatorContext, contextMediatorCallback, store} from "./_internals"
 import {isFunction} from "lodash/lang"
+import {autobind} from "core-decorators"
 
 import {getInjectValue, globalValues, defaultValues, isPropertyInjection} from "../inject/_internals"
 import {destroy as commandDestroy, pause as commandPause, resume as commandResume} from "../command/_internals"
@@ -47,6 +48,7 @@ const contextName = Symbol("fluxtuateContext_contextName");
 
 const models = Symbol("fluxtuateContext_models");
 
+@autobind
 export default class Context {
     constructor() {
         this[destroyed] = false;
