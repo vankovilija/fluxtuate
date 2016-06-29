@@ -47,9 +47,7 @@ export default class ModelWrapper {
                         throw new Error("You can only set values to a model from a command!");
                     }
 
-                    let updateObject = {};
-                    updateObject[key] = value;
-                    this.update(updateObject);
+                    wrappedModel.setKeyValue(key, value, this);
                 },
                 configurable: false
             });

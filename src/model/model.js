@@ -135,6 +135,18 @@ export default class Model extends RetainEventDispatcher {
         }
     }
 
+    setKeyValue(key, value, elementResponsible) {
+        if (self[data][key] && isFunction(self[data][key].setValue)) {
+            self[data][key].setValue(value, elementResponsible);
+        } else {
+            self[data][key] = value;
+        }
+
+        this[properties][key][isDefault] = false;
+
+        this[dispatchUpdate](elementResponsible);
+    }
+
     setValue(value, elementResponsible) {
         this.clear();
         this.update(value, elementResponsible);
