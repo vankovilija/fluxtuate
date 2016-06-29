@@ -307,9 +307,10 @@ export default class Context {
             });
         };
 
+        let self = this;
         this[storeFunction] = {
             addModel(modelClass, storeName, injectionKey, description) {
-                if(this[storeModels].indexOf(storeName) !== -1) {
+                if(self[storeModels].indexOf(storeName) !== -1) {
                     throw new Error(`Stores can only be registered once per context, you are trying to register the store ${storeName} twice!`)
                 }
                 if(!description) {
@@ -320,18 +321,18 @@ export default class Context {
                     injectionKey = storeName;
                 }
 
-                let model = this[store].mapModel(modelClass, this).toKey(storeName);
-                this[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
-                this[models][injectionKey] = Object.assign({}, model, {wrapper: new ContextModelWrapper(model)});
+                let model = self[store].mapModel(modelClass, self).toKey(storeName);
+                self[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
+                self[models][injectionKey] = Object.assign({}, model, {wrapper: new ContextModelWrapper(model)});
 
-                this[storeModels].push(storeName);
+                self[storeModels].push(storeName);
             },
             getModel(modelName) {
-                if(!this[models][modelName]){
+                if(!self[models][modelName]){
                     return;
                 }
 
-                return this[models][modelName].wrapper;
+                return self[models][modelName].wrapper;
             }
         };
 
