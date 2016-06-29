@@ -166,7 +166,7 @@ export default class Model extends RetainEventDispatcher {
             let key = keys[i];
 
             if(!this[properties][key])
-                throw new Error(`Trying to set undefined property ${key} that is not defined in model!`);
+                continue;
 
             let modelKey = key;
             if (isObject(this[properties][key])) {

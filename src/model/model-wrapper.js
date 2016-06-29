@@ -52,6 +52,19 @@ export default class ModelWrapper {
                 configurable: false
             });
         });
+        let descriptors = Object.getOwnPropertyDescriptors(Object.getPrototypeOf(wrappedModel));
+
+        Object.keys(descriptors).filter((key)=>keys.indexOf(key) === -1).forEach((key)=> {
+            if (reserved.indexOf(key) !== -1) return;
+
+            if (descriptors[key].get) {
+                Object.defineProperty(this, key, {
+                    get(){
+                        return wrappedModel[key];
+                    }
+                });
+            }
+        });
     }
 
     get modelData() {
