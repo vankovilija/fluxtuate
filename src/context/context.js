@@ -325,7 +325,7 @@ export default class Context {
 
                 let model = self[store].mapModel(modelClass, self).toKey(storeName);
                 self[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
-                self[models][injectionKey] = Object.assign({}, model, {wrapper: new ContextModelWrapper(model)});
+                self[models][injectionKey] = Object.assign({}, model, {wrapper: new ContextModelWrapper(model.modelInstance)});
 
                 self[storeModels].push(storeName);
             },
