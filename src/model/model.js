@@ -5,6 +5,7 @@ import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {destroy} from "../event-dispatcher/_internals"
 import {isFunction, isObject, isArray, isDate} from "lodash/lang"
 import reservedWords from "./reserved"
+import {autobind} from "core-decorators"
 
 const data = Symbol("fluxtuateModel_data");
 const calculatedFields = Symbol("fluxtuateModel_calculatedFields");
@@ -45,7 +46,7 @@ function deepData(model, deepDataProperty) {
     return o;
 }
 
-
+@autobind
 export default class Model extends RetainEventDispatcher {
     constructor(modelName) {
         super();
@@ -136,10 +137,10 @@ export default class Model extends RetainEventDispatcher {
     }
 
     setKeyValue(key, value, elementResponsible) {
-        if (self[data][key] && isFunction(self[data][key].setValue)) {
-            self[data][key].setValue(value, elementResponsible);
+        if (this[data][key] && isFunction(this[data][key].setValue)) {
+            this[data][key].setValue(value, elementResponsible);
         } else {
-            self[data][key] = value;
+            this[data][key] = value;
         }
 
         this[properties][key][isDefault] = false;
