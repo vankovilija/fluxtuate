@@ -1,4 +1,4 @@
-import {destroy} from "./_internals"
+import {destroy, boundModels} from "./_internals"
 import {isFunction} from "lodash/lang"
 const destroyed = Symbol("fluxtuateMediator_destroyed");
 const updateMediatorPropsFromModel = Symbol("fluxtuateMediator_updateMediatorPropsFromModel");
@@ -29,6 +29,13 @@ export default class Mediator {
         };
 
         setTimeout(()=>{
+            if(this[boundModels]) {
+                this[boundModels].forEach((boundModel)=>{
+                    if(this[boundModel.key]){
+                        this.linkModel(this[boundModel.key], boundModel.bindFunction);
+                    }
+                });
+            }
             if(isFunction(this.destroy)){
                 let dest = this.destroy;
                 this.destroy = () => {
