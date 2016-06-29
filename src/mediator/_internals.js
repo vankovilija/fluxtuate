@@ -9,6 +9,7 @@ export const resume = Symbol("fluxtuateInternals__resume");
 export const destroy = Symbol("fluxtuateInternals__destroy");
 export const mediator = Symbol("fluxtuateInternals__mediator");
 export const boundModels = Symbol("fluxtuateInternals_boundModels");
+export const autoDispatches = Symbol("fluxtuateInternals_autoDispatch");
 
 //delegate functions
 export const viewCreated = Symbol("fluxtuateInternals__viewCreated");

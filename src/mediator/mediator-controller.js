@@ -65,7 +65,7 @@ export default class MediatorController {
         };
 
         this[createMediator] = (view, mediatorClass) => {
-            let med = new mediatorClass();
+            let med = new mediatorClass(this[context].dispatch);
             med.setProps = chainFunctions(updateMediatorProps.bind(med, this[context][contextMediatorCallback], view), view[view[fluxtuateUpdateFunction]], updatedProps.bind(med, this[context][contextMediatorCallback], view));
             med[props] = Object.assign({},view.props);
 

@@ -1,4 +1,4 @@
-import {fluxtuateUpdateFunction, fluxtuateNameProperty, boundModels} from "./_internals"
+import {fluxtuateUpdateFunction, fluxtuateNameProperty, boundModels, autoDispatches} from "./_internals"
 
 export function updateFunction(target, name) {
     target[fluxtuateUpdateFunction] = name;
@@ -8,7 +8,7 @@ export function nameProperty(target, name) {
     target[fluxtuateNameProperty] = name;
 }
 
-function processProperty(bindFunction, target, key, descriptor) {
+function processBindProperty(bindFunction, target, key, descriptor) {
 
     if(key === undefined || typeof descriptor.value === "function") throw new Error(`You can only bind properties of a mediator!`);
 
@@ -20,8 +20,35 @@ function processProperty(bindFunction, target, key, descriptor) {
 
 export function bindModel(bindFunction, ...args) {
     if (args.length === 0) {
-        return processProperty.bind(this, bindFunction);
+        return processBindProperty.bind(this, bindFunction);
     } else if (args.length === 2) {
-        return processProperty.apply(this, [(payload)=>payload.data, bindFunction, ...args]);
+        return processBindProperty.apply(this, [(payload)=>payload.data, bindFunction, ...args]);
+    }
+}
+
+function processDispatchProperty(dispatchKey, target, key, descriptor) {
+
+    if(key === undefined ) throw new Error(`You can only bind properties of a mediator!`);
+
+    let dispatchFunction;
+    if(typeof descriptor.value === "function") {
+        dispatchFunction = descriptor.value;
+    }else{
+        dispatchFunction = (descriptorPayload)=>descriptorPayload;
+    }
+    
+    if(!target[autoDispatches]) target[autoDispatches] = [];
+    target[autoDispatches].push({key, dispatchFunction, dispatchKey});
+
+    descriptor.configurable = true;
+
+    return descriptor;
+}
+
+export function autoDispatch(dispatchKey, ...args) {
+    if (args.length === 0) {
+        return processDispatchProperty.bind(this, dispatchKey);
+    } else if (args.length === 2) {
+        return processDispatchProperty.apply(this, [args[0], dispatchKey, ...args]);
     }
 }
