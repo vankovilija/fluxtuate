@@ -29,6 +29,8 @@ export default class Mediator {
         };
 
         setTimeout(()=>{
+            if(this[destroyed]) return;
+            
             if(this[boundModels]) {
                 this[boundModels].forEach((boundModel)=>{
                     if(this[boundModel.key]){
