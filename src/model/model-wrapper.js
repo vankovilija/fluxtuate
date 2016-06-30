@@ -3,6 +3,7 @@ import getOwnKeys from "../utils/getOwnKeys"
 import reserved from "../model/reserved"
 
 const listeners = Symbol("fluxtuateModelWrapper_listeners");
+const refreshListener = Symbol("fluxtuateModelWrapper_refreshListener");
 const dispatchUpdate = Symbol("fluxtuateModelWrapper_dispatchUpdate");
 const updateTimer = Symbol("fluxtuateModelWrapper_updateTimer");
 
@@ -34,36 +35,39 @@ export default class ModelWrapper {
 
         this[updateable] = false;
 
-        let keys = getOwnKeys(wrappedModel);
-        keys.forEach((key)=>{
-            if(reserved.indexOf(key) !== -1) return;
+        this[refreshListener] = wrappedModel.onUpdate(()=>{
+            let wrapperKeys = getOwnKeys(this);
+            let keys = getOwnKeys(wrappedModel);
+            keys.forEach((key)=>{
+                if(wrapperKeys.indexOf(key) !== -1 || reserved.indexOf(key) !== -1) return;
 
-            Object.defineProperty(this, key, {
-                get(){
-                    return wrappedModel[key];
-                },
-                set(value){
-                    if(!this[updateable]){
-                        throw new Error("You can only set values to a model from a command!");
-                    }
-
-                    wrappedModel.setKeyValue(key, value, this);
-                },
-                configurable: false
-            });
-        });
-        let descriptors = Object.getOwnPropertyDescriptors(Object.getPrototypeOf(wrappedModel));
-
-        Object.keys(descriptors).filter((key)=>keys.indexOf(key) === -1).forEach((key)=> {
-            if (reserved.indexOf(key) !== -1) return;
-
-            if (descriptors[key].get) {
                 Object.defineProperty(this, key, {
                     get(){
                         return wrappedModel[key];
-                    }
+                    },
+                    set(value){
+                        if(!this[updateable]){
+                            throw new Error("You can only set values to a model from a command!");
+                        }
+
+                        wrappedModel.setKeyValue(key, value, this);
+                    },
+                    configurable: false
                 });
-            }
+            });
+            let descriptors = Object.getOwnPropertyDescriptors(Object.getPrototypeOf(wrappedModel));
+
+            Object.keys(descriptors).filter((key)=>keys.indexOf(key) === -1).forEach((key)=> {
+                if(wrapperKeys.indexOf(key) !== -1 || reserved.indexOf(key) !== -1) return;
+
+                if (descriptors[key].get) {
+                    Object.defineProperty(this, key, {
+                        get(){
+                            return wrappedModel[key];
+                        }
+                    });
+                }
+            });
         });
     }
 
@@ -110,5 +114,7 @@ export default class ModelWrapper {
             listener.remove();
         });
         this[destroyed] = true;
+
+        this[refreshListener].remove();
     }
 } 

@@ -54,7 +54,8 @@ export default class Model extends RetainEventDispatcher {
 
         this[configureDefaultValues] = ()=> {
             for (let k in this[properties]) {
-                if(this[this[properties][k].modelKey] !== undefined && Object.getOwnPropertyDescriptor(this, this[properties][k].modelKey).configurable) {
+                let keyDescriptor = Object.getOwnPropertyDescriptor(this, this[properties][k].modelKey);
+                if(this[this[properties][k].modelKey] !== undefined && keyDescriptor && keyDescriptor.configurable) {
                     if(this[properties][k].defaultValue === undefined)
                         this[properties][k].defaultValue = this[properties][k].convert(this[this[properties][k].modelKey]);
 
@@ -188,7 +189,8 @@ export default class Model extends RetainEventDispatcher {
                 this[data][key] = updateData[key];
             }
 
-            if(Object.getOwnPropertyDescriptor(this, this[properties][key].modelKey).configurable) {
+            let keyDescriptor = Object.getOwnPropertyDescriptor(this, this[properties][key].modelKey);
+            if(keyDescriptor && keyDescriptor.configurable) {
                 let self = this;
                 Object.defineProperty(this, modelKey, {
                     get() {
