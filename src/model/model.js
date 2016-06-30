@@ -84,7 +84,7 @@ export default class Model extends RetainEventDispatcher {
                 });
                 let mData = {};
                 for (let k in this[properties]) {
-                    if (this[data][k])
+                    if (this[data][k] !== undefined)
                         mData[k] = this[data][k];
                     else {
                         mData[k] = this[properties][k].convert(this[properties][k].defaultValue);
