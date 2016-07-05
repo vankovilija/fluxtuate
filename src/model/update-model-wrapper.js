@@ -1,10 +1,11 @@
-import {model, checkDestroyed, updateable} from "./_internals"
+import {model, checkDestroyed, updateable, arrayConstructor} from "./_internals"
 import ModelWrapper from "./model-wrapper"
+import UpdateArrayWrapper from "./update-array-wrapper"
 
 export default class UpdateModelWrapper extends ModelWrapper{
     constructor(wrappedModel, holderContext) {
         super(wrappedModel, holderContext);
-
+        this[arrayConstructor] = UpdateArrayWrapper;
         this[updateable] = true;
     }
 

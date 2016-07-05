@@ -3,48 +3,16 @@ import getOwnPropertyDescriptors from "../utils/getOwnPropertyDescriptors"
 import {primaryKey, properties, elementResponsible} from "./_internals"
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {destroy} from "../event-dispatcher/_internals"
-import {isFunction, isObject, isArray, isDate} from "lodash/lang"
+import {isFunction, isObject} from "lodash/lang"
 import reservedWords from "./reserved"
 import {autobind} from "core-decorators"
+import deepData from "./deep-data"
 
 const data = Symbol("fluxtuateModel_data");
 const calculatedFields = Symbol("fluxtuateModel_calculatedFields");
 const dispatchUpdate = Symbol("fluxtuateModel_dispatchUpdate");
 const configureDefaultValues = Symbol("fluxtuateModel_configureDefaultValues");
 const isDefault = Symbol("fluxtuateModel_isDefault");
-
-function processProp(prop, deepDataProperty) {
-    if (prop !== null && !isDate(prop)
-        && (typeof prop === "object" || typeof prop === "function")
-        && !Object.isFrozen(prop)) {
-        return deepData(prop, deepDataProperty);
-    } else {
-        return prop;
-    }
-}
-
-function deepData(model, deepDataProperty) {
-    let o = model;
-    if (o[deepDataProperty]) {
-        return o[deepDataProperty];
-    }
-
-    Object.getOwnPropertyNames(o).forEach(function (prop) {
-        if (isArray(o[prop])) {
-            let propArray = [];
-            o[prop].forEach((propElem)=> {
-                propArray.push(processProp(propElem, deepDataProperty));
-            });
-            o[prop] = propArray;
-        } else {
-            o[prop] = processProp(o[prop], deepDataProperty);
-        }
-    });
-
-    Object.freeze(o);
-
-    return o;
-}
 
 @autobind
 export default class Model extends RetainEventDispatcher {
@@ -138,10 +106,21 @@ export default class Model extends RetainEventDispatcher {
     }
 
     setKeyValue(key, value, elementResponsible) {
+        if(this[properties][key].listener){
+            this[properties][key].listener.remove();
+            this[properties][key].listener = undefined;
+        }
+        
         if (this[data][key] && isFunction(this[data][key].setValue)) {
             this[data][key].setValue(value, elementResponsible);
         } else {
             this[data][key] = value;
+        }
+
+        if(this[data][key] && isFunction(this[data][key].onUpdate)){
+            this[properties][key].listener = this[data][key].onUpdate((payload)=>{
+                this[dispatchUpdate](payload[elementResponsible]);
+            });
         }
 
         this[properties][key][isDefault] = false;
@@ -189,6 +168,17 @@ export default class Model extends RetainEventDispatcher {
                 this[data][key] = updateData[key];
             }
 
+            if(this[properties][key].listener){
+                this[properties][key].listener.remove();
+                this[properties][key].listener = undefined;
+            }
+            
+            if(this[data][key] && isFunction(this[data][key].onUpdate)){
+                this[properties][key].listener = this[data][key].onUpdate((payload)=>{
+                    this[dispatchUpdate](payload[elementResponsible]);
+                });
+            }
+
             let keyDescriptor = Object.getOwnPropertyDescriptor(this, this[properties][key].modelKey);
             if(keyDescriptor && keyDescriptor.configurable) {
                 let self = this;
@@ -207,6 +197,12 @@ export default class Model extends RetainEventDispatcher {
     }
 
     clear(elementResponsible) {
+        for(let key in this[properties]){
+            if(this[properties][key] && this[properties][key].listener){
+                this[properties][key].listener.remove();
+                this[properties][key].listener = undefined;
+            }
+        }
         this[data] = {};
         this[configureDefaultValues]();
         if(elementResponsible){
@@ -229,7 +225,7 @@ export default class Model extends RetainEventDispatcher {
     }
 
     destroy() {
+        this.clear();
         this[destroy]();
-        this[data] = {};
     }
 }

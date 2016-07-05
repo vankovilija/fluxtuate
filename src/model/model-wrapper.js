@@ -1,11 +1,14 @@
-import {model, context, destroyed, checkDestroyed, updateable} from "./_internals"
+import {model, context, destroyed, checkDestroyed, updateable, constructorProps, arrayConstructor} from "./_internals"
 import getOwnKeys from "../utils/getOwnKeys"
 import reserved from "../model/reserved"
+import {isFunction, isArrayLike} from "lodash/lang"
+import ArrayWrapper from "./array-wrapper"
 
 const listeners = Symbol("fluxtuateModelWrapper_listeners");
 const refreshListener = Symbol("fluxtuateModelWrapper_refreshListener");
 const dispatchUpdate = Symbol("fluxtuateModelWrapper_dispatchUpdate");
 const updateTimer = Symbol("fluxtuateModelWrapper_updateTimer");
+
 
 
 export default class ModelWrapper {
@@ -14,6 +17,8 @@ export default class ModelWrapper {
         this[listeners] = [];
         this[context] = holderContext;
         this[destroyed] = false;
+        this[constructorProps] = [holderContext];
+        this[arrayConstructor] = ArrayWrapper;
         this[checkDestroyed] = ()=>{
             if(this[destroyed]){
                 throw new Error("You are trying to access a destroyed model.");
@@ -43,7 +48,15 @@ export default class ModelWrapper {
 
                 Object.defineProperty(this, key, {
                     get(){
-                        return wrappedModel[key];
+                        if(wrappedModel[key] && isFunction(wrappedModel[key].onUpdate)){
+                            if(isArrayLike(wrappedModel[key])) {
+                                return (Function.prototype.bind.apply(this[arrayConstructor], [this, wrappedModel[key], ...this[constructorProps]]));
+                            }else {
+                                return new (Function.prototype.bind.apply(this.constructor, [this, wrappedModel[key], ...this[constructorProps]]));
+                            }
+                        } else {
+                            return wrappedModel[key];
+                        }
                     },
                     set(value){
                         if(!this[updateable]){
