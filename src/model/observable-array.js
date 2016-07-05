@@ -16,6 +16,7 @@ const arrayGetterMethods = ["slice", "indexOf"];
 
 export default class ObservableArray extends EventDispatcher{
     constructor(wrappedArray, name) {
+        super();
         this[arrayName] = name;
         this[innerArray] = wrappedArray;
         this[listeners] = [];
