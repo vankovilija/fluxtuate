@@ -2,6 +2,7 @@ import EventDispatcher from "../event-dispatcher"
 import deepData from "./deep-data"
 import {primaryKey, elementResponsible} from "./_internals"
 import {isFunction} from "lodash/lang"
+import {destroy} from "../event-dispatcher/_internals"
 
 const innerArray = Symbol("fluxtuateObservableArray_innerArray");
 const sendUpdate = Symbol("fluxtuateObservableArray_sendUpdate");
@@ -10,13 +11,17 @@ const arrayName = Symbol("fluxtuateObservableArray_arrayName");
 const destroyed = Symbol("fluxtuateObservableArray_destroyed");
 const checkDestroyed = Symbol("fluxtuateObservableArray_checkDestroyed");
 const elementListeners = Symbol("fluxtuateObservableArray_elementListeners");
+const arrayConverter = Symbol("fluxtuateObservableArray_arrayConvertor");
+const arrayParent = Symbol("fluxtuateObservableArray_arrayParent");
 const configureElementListeners = Symbol("fluxtuateObservableArray_configureElementListeners");
 const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift"];
-const arrayGetterMethods = ["slice", "indexOf"];
+const arrayGetterMethods = ["slice", "indexOf", "map"];
 
 export default class ObservableArray extends EventDispatcher{
-    constructor(wrappedArray, name) {
+    constructor(wrappedArray, name, parentName, arrayConverterFunction) {
         super();
+        this[arrayConverter] = arrayConverterFunction;
+        this[arrayParent] = parentName;
         this[arrayName] = name;
         this[innerArray] = wrappedArray;
         this[listeners] = [];
@@ -27,8 +32,15 @@ export default class ObservableArray extends EventDispatcher{
                 throw new Error("You are trying to access a destroyed array!");
             }
         };
-        this[configureElementListeners] = () => {
+        this[configureElementListeners] = (oldData) => {
+            if(oldData === this[innerArray]) return;
+
             this[innerArray].forEach((elem, index)=>{
+                if(oldData.indexOf(elem) !== -1) return;
+
+                elem = this[arrayConverter](elem, this[arrayParent], `${this[arrayName]}[${index}]`);
+                this[innerArray][index] = elem;
+
                 if(!this[elementListeners][index]){
                     this[elementListeners][index] = {};
                 }
@@ -41,11 +53,11 @@ export default class ObservableArray extends EventDispatcher{
                         this[elementListeners][index].listener.remove();
                         this[elementListeners][index].listener = undefined;
                     }
-                    if(elem && isFunction(elem.onUpdate)) {
+                    if(elem && isFunction(elem.addListener)) {
                         this[elementListeners][index].elem = elem;
-                        this[elementListeners][index].listener = elem.onUpdate((payload)=>{
-                            this[sendUpdate](payload[elementResponsible]);
-                        });
+                        this[elementListeners][index].listener = elem.addListener("update", (ev, payload)=>{
+                            this[sendUpdate](payload[elementResponsible], this[innerArray]);
+                        }, 0, false);
                     }else{
                         this[elementListeners][index].elem = undefined;
                     }
@@ -53,12 +65,28 @@ export default class ObservableArray extends EventDispatcher{
             });
 
             while(this[innerArray].length < this[elementListeners].length) {
-                this[elementListeners].pop();
+                let lObject = this[elementListeners].pop();
+
+                if(lObject.listener) {
+                    lObject.listener.remove();
+                }
+
+                if(lObject.elem && isFunction(lObject.elem.destroy)){
+                    lObject.elem.destroy();
+                }
             }
+
+            oldData.forEach((elem)=>{
+                if(this[innerArray].indexOf(elem) === -1) {
+                    if(elem.destroy) {
+                        elem.destroy();
+                    }
+                }
+            });
         };
 
-        this[sendUpdate] = (elementR)=>{
-            this[configureElementListeners]();
+        this[sendUpdate] = (elementR, oldData)=>{
+            this[configureElementListeners](oldData);
             let payload = {
                 data: this.modelData, name: this.modelName
             };
@@ -70,8 +98,10 @@ export default class ObservableArray extends EventDispatcher{
                 value: (elementR, ...args)=>{
                     this[checkDestroyed]();
 
+                    let oldData = this[innerArray];
+                    this[innerArray] = this[innerArray].slice();
                     let returnValue = this[innerArray][methodName].apply(this[innerArray], args);
-                    this[sendUpdate](elementR);
+                    this[sendUpdate](elementR, oldData);
                     return returnValue;
                 },
                 configurable: false
@@ -80,29 +110,20 @@ export default class ObservableArray extends EventDispatcher{
         arrayGetterMethods.forEach((methodName)=>{
             Object.defineProperty(this, methodName, {
                 value: (...args)=>{
-                    return this[innerArray][methodName].apply(this[innerArray], args);
+                    return this.modelData[methodName].apply(this[innerArray], args);
                 },
                 configurable: false
             })
         });
-        
-        let self = this;
+    }
 
-        this[Symbol.iterator] = () => {
-            let index = 0;
-            return {
-                next() {
-                    return {
-                        done: index === target.length,
-                        get(){
-                            return self.getElement[index++]
-                        },
-                        set(value){
-                            self.setElement(index, value);
-                        }
-                    }
-                }
-            }
+    forEach(callback) {
+        if(!isFunction(callback)){
+            throw new Error("You must supply a function to the forEach method of arrays!");
+        }
+
+        for(let i = 0; i < this[innerArray].length; i++) {
+            callback(this.getElement(i), i);
         }
     }
 
@@ -119,8 +140,10 @@ export default class ObservableArray extends EventDispatcher{
     setElement(elementR, id, value) {
         this[checkDestroyed]();
 
-        this[innerArray][id] = value;
-        this[sendUpdate](elementR);
+        let oldData = this[innerArray];
+        this[innerArray] = this[innerArray].slice();
+        this[innerArray][id] = this[arrayConverter](value, this[arrayParent], `${this[arrayName]}[${id}]`);
+        this[sendUpdate](elementR, oldData);
     }
 
     get length() {
@@ -132,8 +155,10 @@ export default class ObservableArray extends EventDispatcher{
     setLength(elementR, value) {
         this[checkDestroyed]();
 
+        let oldArray = this[innerArray];
+        this[innerArray] = this[innerArray].slice();
         this[innerArray].length = value;
-        this[sendUpdate](elementR);
+        this[sendUpdate](elementR, oldArray);
     }
 
     onUpdate(callback) {
@@ -182,13 +207,16 @@ export default class ObservableArray extends EventDispatcher{
     remove(elementR, id) {
         this[checkDestroyed]();
 
+        let oldArray = this[innerArray];
+        this[innerArray] = this[innerArray].slice();
+
         let newArray = this[innerArray];
         let elem = newArray.find(id);
         if(elem) {
             newArray.splice(newArray.indexOf(elem), 1);
         }
 
-        this[sendUpdate](elementR);
+        this[sendUpdate](elementR, oldArray);
 
         return newArray;
     }
@@ -196,32 +224,38 @@ export default class ObservableArray extends EventDispatcher{
     clear(elementR) {
         this[checkDestroyed]();
 
+        let oldArray = this[innerArray];
         this[innerArray] = [];
-        this[sendUpdate](elementR);
+        this[sendUpdate](elementR, oldArray);
     }
 
     merge(elementR, secondArray) {
         this[checkDestroyed]();
 
-        let newArray = this[innerArray];
+        let oldArray = this[innerArray];
+        let newArray = this[innerArray].slice();
         secondArray.forEach((elem)=>{
             if(elem[primaryKey]) {
-                let realElem = newArray.find(elem[elem[primaryKey]]);
+                let realElem = this.find(elem[elem[primaryKey]]);
                 if(realElem) {
                     if(isFunction(realElem.update))
-                        realElem.update(elem.cleanData);
+                        realElem.update(elem.cleanData, elementR);
                     else{
                         newArray.splice(newArray.indexOf(realElem), 1, elem);
                     }
                 }else{
+                    elem = this[arrayConverter](elem, this[arrayParent], `${this[arrayName]}[${newArray.length}]`);
                     newArray.push(elem);
                 }
             }else{
+                elem = this[arrayConverter](elem, this[arrayParent], `${this[arrayName]}[${newArray.length}]`);
                 newArray.push(elem);
             }
         });
 
-        this[sendUpdate](elementR);
+        this[innerArray] = newArray;
+
+        this[sendUpdate](elementR, oldArray);
     }
 
     compare(secondArray) {
@@ -242,7 +276,11 @@ export default class ObservableArray extends EventDispatcher{
             if(elListener.listener){
                 elListener.listener.remove();
             }
+            if(elListener.elem.destroy){
+                elListener.elem.destroy();
+            }
         });
         this[destroyed] = true;
+        this[destroy]();
     }
 }

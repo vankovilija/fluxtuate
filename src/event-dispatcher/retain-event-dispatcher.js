@@ -9,8 +9,10 @@ export default class RetainEventDispatcher extends EventDispatcher {
         this[dispatchValues] = {};
     }
 
-    addListener(eventName, callbackFunction, priority = 0, oneShot = false) {
-        let returnListener = super.addListener(eventName, callbackFunction, priority, oneShot);
+    addListener(eventName, callbackFunction, priority = 0, retain = true) {
+        let returnListener = super.addListener(eventName, callbackFunction, priority);
+
+        if(!retain) return returnListener;
 
         if(this[dispatchValues][eventName])
             invokeFunction(callbackFunction, [eventName, this[dispatchValues][eventName]]);

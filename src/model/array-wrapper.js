@@ -8,8 +8,10 @@ const destroyed = Symbol("fluxtuateArrayWrapper_destroyed");
 const checkDestroyed = Symbol("fluxtuateArrayWrapper_checkDestroyed");
 const dispatchUpdate = Symbol("fluxtuateArrayWrapper_dispatchUpdate");
 const updateTimer = Symbol("fluxtuateArrayWrapper_updateTimer");
-const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift", "setElement", "setLength", "remove", "clear", "merge"];
-const arrayGetterMethods = ["slice", "indexOf", "find", "compare"];
+const defineArrayProperties = Symbol("fluxtuateArrayWrapper_defineArrayProperties");
+const propertiesLength = Symbol("fluxtuateArrayWrapper_propertiesLength");
+const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift", "setElement", "remove", "clear", "merge"];
+const arrayGetterMethods = ["slice", "indexOf", "forEach", "map", "find", "compare"];
 
 export default class ArrayWrapper {
     constructor(wrappedArray, holderContext) {
@@ -20,6 +22,7 @@ export default class ArrayWrapper {
         this[updateable] = false;
         this[constructorProps] = [holderContext];
         this[destroyed] = false;
+        this[propertiesLength] = 0;
 
         this[checkDestroyed] = ()=>{
             if(this[destroyed]){
@@ -27,7 +30,26 @@ export default class ArrayWrapper {
             }
         };
 
+        this[defineArrayProperties] = () => {
+            let l = this[innerArray].length;
+
+            for(let i = this[propertiesLength]; i <= l; i++) {
+                Object.defineProperty(this, i, {
+                    get() {
+                        return this[innerArray].getElement(i);
+                    },
+                    set(value) {
+                        this[innerArray].setElement(this, i, value);
+                    },
+                    configurable: true
+                });
+            }
+
+            this[propertiesLength] = l + 1;
+        };
+
         this[dispatchUpdate] = (callback, payload)=>{
+            this[defineArrayProperties]();
             if(this[updateTimer]) {
                 clearTimeout(this[updateTimer]);
                 this[updateTimer] = undefined;
@@ -65,24 +87,7 @@ export default class ArrayWrapper {
             })
         });
         
-        let self = this;
-
-        this[Symbol.iterator] = () => {
-            let index = 0;
-            return {
-                next() {
-                    return {
-                        done: index === target.length,
-                        get(){
-                            return self.getElement[index++]
-                        },
-                        set(value){
-                            self.setElement(index, value);
-                        }
-                    }
-                }
-            }
-        }
+        this[defineArrayProperties]();
     }
 
     get modelName() {
@@ -99,7 +104,7 @@ export default class ArrayWrapper {
             if(isArrayLike(returnElement)) {
                 return new (Function.prototype.bind.apply(this.constructor, [this, returnElement, ...this[constructorProps]]));
             }else {
-                return (Function.prototype.bind.apply(this[modelConstructor], [this, returnElement, ...this[constructorProps]]));
+                return new (Function.prototype.bind.apply(this[modelConstructor], [this, returnElement, ...this[constructorProps]]));
             }
         } else {
             return returnElement;
@@ -110,6 +115,16 @@ export default class ArrayWrapper {
         this[checkDestroyed]();
 
         return this[innerArray].length;
+    }
+
+    set length(value) {
+        this[checkDestroyed]();
+
+        if(!this[updateable]){
+            throw new Error("You are trying to alter a array that is not editable, you must do all data alteration from a command!");
+        }
+
+        this[innerArray].setLength(this, value);
     }
 
     onUpdate(callback) {

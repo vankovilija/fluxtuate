@@ -8,6 +8,7 @@ const listeners = Symbol("fluxtuateModelWrapper_listeners");
 const refreshListener = Symbol("fluxtuateModelWrapper_refreshListener");
 const dispatchUpdate = Symbol("fluxtuateModelWrapper_dispatchUpdate");
 const updateTimer = Symbol("fluxtuateModelWrapper_updateTimer");
+const setupModelValues = Symbol("fluxtuateModelWrapper_setupModelValues");
 
 
 
@@ -40,7 +41,7 @@ export default class ModelWrapper {
 
         this[updateable] = false;
 
-        this[refreshListener] = wrappedModel.onUpdate(()=>{
+        this[setupModelValues] = ()=>{
             let wrapperKeys = getOwnKeys(this);
             let keys = getOwnKeys(wrappedModel);
             keys.forEach((key)=>{
@@ -48,9 +49,11 @@ export default class ModelWrapper {
 
                 Object.defineProperty(this, key, {
                     get(){
+                        this[checkDestroyed]();
+
                         if(wrappedModel[key] && isFunction(wrappedModel[key].onUpdate)){
                             if(isArrayLike(wrappedModel[key])) {
-                                return (Function.prototype.bind.apply(this[arrayConstructor], [this, wrappedModel[key], ...this[constructorProps]]));
+                                return new (Function.prototype.bind.apply(this[arrayConstructor], [this, wrappedModel[key], ...this[constructorProps]]));
                             }else {
                                 return new (Function.prototype.bind.apply(this.constructor, [this, wrappedModel[key], ...this[constructorProps]]));
                             }
@@ -59,6 +62,8 @@ export default class ModelWrapper {
                         }
                     },
                     set(value){
+                        this[checkDestroyed]();
+
                         if(!this[updateable]){
                             throw new Error("You can only set values to a model from a command!");
                         }
@@ -81,7 +86,10 @@ export default class ModelWrapper {
                     });
                 }
             });
-        });
+        };
+
+        this[refreshListener] = wrappedModel.onUpdate(this[setupModelValues]);
+        this[setupModelValues]();
     }
 
     get modelData() {

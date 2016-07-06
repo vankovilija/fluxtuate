@@ -2,18 +2,20 @@ import ObservableArray from "../observable-array"
 import {isArray} from "lodash/lang"
 import instanceOf from "./instance-of"
 
-function defineArrayProps(returnArray, name) {
-    return new ObservableArray(returnArray, name);
+function defineArrayProps(returnArray, name, parentName, convertFunction) {
+    return new ObservableArray(returnArray, name, parentName, convertFunction);
 }
 
 function convert(conversionFunction, data = [], parentName, parentProperty){
+    if(data instanceof ObservableArray) return data;
+
     if(!isArray(data)) throw new Error("Value must be of type Array");
 
     let returnArray = data.map((d, i)=>{
         return conversionFunction(d, parentName, `${parentProperty}[${i}]`);
     });
 
-    return defineArrayProps(returnArray, parentProperty);
+    return defineArrayProps(returnArray, parentProperty, parentName, conversionFunction);
 }
 
 export default function (valueClass = Object, typeProperty, typeChecks) {
