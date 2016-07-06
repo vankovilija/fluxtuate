@@ -262,7 +262,15 @@ export default class ObservableArray extends EventDispatcher{
         this[checkDestroyed]();
 
         if(this[innerArray].length !== secondArray.length) return false;
-
+        
+        this[innerArray].forEach((elem, index)=>{
+            if(elem.compare) {
+                if(!elem.compare(secondArray[index])) return false;
+            }else{
+                if(elem !== secondArray[index]) return false;
+            }
+        });
+        return true;
     }
 
     destroy() {

@@ -2,6 +2,7 @@ import {isFunction, isArray, isObject} from "lodash/lang"
 import getOwnKeys from "../../utils/getOwnKeys"
 
 function convert(valueType, typeProperty, typeChecks, value = {}, parentName, parentProperty) {
+    if(!valueType) return value;
 
     if(!isObject(value)){
         throw new Error(`You must supply a value of object for property ${parentProperty} in ${parentName}!`);
@@ -41,9 +42,9 @@ function convert(valueType, typeProperty, typeChecks, value = {}, parentName, pa
     }
 }
 
-export default (valueClass = Object, typeProperty, typeChecks) => {
+export default (valueClass, typeProperty, typeChecks) => {
     if(!isArray(valueClass) && typeChecks) {
-        return convert.apply(this, [Object, undefined, undefined, valueClass, typeProperty, typeChecks]);
+        return convert.apply(this, [undefined, undefined, undefined, valueClass, typeProperty, typeChecks]);
     }else{
         return convert.bind(this, valueClass, typeProperty, typeChecks);
     }

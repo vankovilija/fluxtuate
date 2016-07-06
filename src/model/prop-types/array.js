@@ -18,7 +18,7 @@ function convert(conversionFunction, data = [], parentName, parentProperty){
     return defineArrayProps(returnArray, parentProperty, parentName, conversionFunction);
 }
 
-export default function (valueClass = Object, typeProperty, typeChecks) {
+export default function (valueClass, typeProperty, typeChecks) {
     if(!isArray(valueClass) && typeChecks) {
         return convert.apply(this, [instanceOf(), valueClass, typeProperty, typeChecks]);
     }else{

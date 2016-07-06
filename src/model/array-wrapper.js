@@ -1,4 +1,5 @@
 import {context, updateable, modelConstructor, constructorProps} from "./_internals"
+import {isArrayLike, isFunction} from "lodash/lang"
 import ModelWrapper from "./model-wrapper"
 import deepData from "./deep-data"
 
@@ -8,10 +9,11 @@ const destroyed = Symbol("fluxtuateArrayWrapper_destroyed");
 const checkDestroyed = Symbol("fluxtuateArrayWrapper_checkDestroyed");
 const dispatchUpdate = Symbol("fluxtuateArrayWrapper_dispatchUpdate");
 const updateTimer = Symbol("fluxtuateArrayWrapper_updateTimer");
+const transformReturn = Symbol("fluxtuateArrayWrapper_transformReturn");
 const defineArrayProperties = Symbol("fluxtuateArrayWrapper_defineArrayProperties");
 const propertiesLength = Symbol("fluxtuateArrayWrapper_propertiesLength");
-const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift", "setElement", "remove", "clear", "merge"];
-const arrayGetterMethods = ["slice", "indexOf", "forEach", "map", "find", "compare"];
+const arraySetterMethods = ["push", "reverse", "sort", "splice", "unshift", "setElement", "remove", "clear", "merge"];
+const arrayGetterMethods = ["slice", "indexOf", "map", "compare"];
 
 export default class ArrayWrapper {
     constructor(wrappedArray, holderContext) {
@@ -23,6 +25,18 @@ export default class ArrayWrapper {
         this[constructorProps] = [holderContext];
         this[destroyed] = false;
         this[propertiesLength] = 0;
+
+        this[transformReturn] = (returnElement) => {
+            if(returnElement && isFunction(returnElement.onUpdate)){
+                if(isArrayLike(returnElement)) {
+                    return new (Function.prototype.bind.apply(this.constructor, [this, returnElement, ...this[constructorProps]]));
+                }else {
+                    return new (Function.prototype.bind.apply(this[modelConstructor], [this, returnElement, ...this[constructorProps]]));
+                }
+            } else {
+                return returnElement;
+            }
+        };
 
         this[checkDestroyed] = ()=>{
             if(this[destroyed]){
@@ -99,16 +113,7 @@ export default class ArrayWrapper {
     getElement(index) {
         this[checkDestroyed]();
 
-        let returnElement = this[innerArray][index];
-        if(returnElement && isFunction(returnElement.onUpdate)){
-            if(isArrayLike(returnElement)) {
-                return new (Function.prototype.bind.apply(this.constructor, [this, returnElement, ...this[constructorProps]]));
-            }else {
-                return new (Function.prototype.bind.apply(this[modelConstructor], [this, returnElement, ...this[constructorProps]]));
-            }
-        } else {
-            return returnElement;
-        }
+        return this[transformReturn](this[innerArray][index]);
     }
 
     get length() {
@@ -125,6 +130,28 @@ export default class ArrayWrapper {
         }
 
         this[innerArray].setLength(this, value);
+    }
+
+    pop() {
+        return this[transformReturn](this[innerArray].pop());
+    }
+
+    shift() {
+        return this[transformReturn](this[innerArray].shift());
+    }
+
+    find(id) {
+        return this[transformReturn](this[innerArray].find(id));
+    }
+
+    forEach(callback) {
+        if(!isFunction(callback)){
+            throw new Error("You must supply a function to the forEach method of arrays!");
+        }
+
+        for(let i = 0; i < this[innerArray].length; i++) {
+            callback(this.getElement(i), i);
+        }
     }
 
     onUpdate(callback) {

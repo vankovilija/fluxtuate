@@ -28,7 +28,5 @@ export default function deepData(model, deepDataProperty) {
         }
     });
 
-    Object.freeze(o);
-
     return o;
 }
