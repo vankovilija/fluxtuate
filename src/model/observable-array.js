@@ -217,8 +217,6 @@ export default class ObservableArray extends EventDispatcher{
         }
 
         this[sendUpdate](elementR, oldArray);
-
-        return newArray;
     }
 
     clear(elementR) {
