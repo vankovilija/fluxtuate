@@ -211,7 +211,7 @@ export default class ObservableArray extends EventDispatcher{
         this[innerArray] = this[innerArray].slice();
 
         let newArray = this[innerArray];
-        let elem = newArray.find(id);
+        let elem = this.find(id);
         if(elem) {
             newArray.splice(newArray.indexOf(elem), 1);
         }
