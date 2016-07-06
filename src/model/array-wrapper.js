@@ -50,10 +50,10 @@ export default class ArrayWrapper {
             for(let i = this[propertiesLength]; i <= l; i++) {
                 Object.defineProperty(this, i, {
                     get() {
-                        return this[innerArray].getElement(i);
+                        return this.getElement(i);
                     },
                     set(value) {
-                        this[innerArray].setElement(this, i, value);
+                        this.setElement(this, i, value);
                     },
                     configurable: true
                 });
