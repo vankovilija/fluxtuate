@@ -102,7 +102,8 @@ export default class ArrayWrapper {
             })
         });
         
-        this[propsListener] = this[innerArray].onUpdate(()=>{this[defineArrayProperties]()});
+        this[propsListener] = this[innerArray].onUpdate(this[defineArrayProperties]);
+        this[defineArrayProperties]();
     }
 
     get modelName() {
@@ -193,7 +194,7 @@ export default class ArrayWrapper {
 
     destroy() {
         if(this[destroyed]) return;
-        
+
         this[propsListener].remove();
         this[listeners].forEach((listener)=>{
             listener.remove();
