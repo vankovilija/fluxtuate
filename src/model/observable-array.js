@@ -1,4 +1,4 @@
-import EventDispatcher from "../event-dispatcher"
+import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import deepData from "./deep-data"
 import {primaryKey, elementResponsible} from "./_internals"
 import {isFunction} from "lodash/lang"
@@ -17,7 +17,7 @@ const configureElementListeners = Symbol("fluxtuateObservableArray_configureElem
 const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift"];
 const arrayGetterMethods = ["slice", "indexOf", "map"];
 
-export default class ObservableArray extends EventDispatcher{
+export default class ObservableArray extends RetainEventDispatcher{
     constructor(wrappedArray, name, parentName, arrayConverterFunction) {
         super();
         this[arrayConverter] = arrayConverterFunction;

@@ -11,8 +11,9 @@ const dispatchUpdate = Symbol("fluxtuateArrayWrapper_dispatchUpdate");
 const updateTimer = Symbol("fluxtuateArrayWrapper_updateTimer");
 const transformReturn = Symbol("fluxtuateArrayWrapper_transformReturn");
 const defineArrayProperties = Symbol("fluxtuateArrayWrapper_defineArrayProperties");
+const propsListener = Symbol("fluxtuateArrayWrapper_propsListener");
 const propertiesLength = Symbol("fluxtuateArrayWrapper_propertiesLength");
-const arraySetterMethods = ["push", "reverse", "sort", "splice", "unshift", "setElement", "remove", "clear", "merge"];
+const arraySetterMethods = ["push", "reverse", "sort", "splice", "unshift", "remove", "clear", "merge"];
 const arrayGetterMethods = ["slice", "indexOf", "map", "compare"];
 
 export default class ArrayWrapper {
@@ -53,7 +54,7 @@ export default class ArrayWrapper {
                         return this.getElement(i);
                     },
                     set(value) {
-                        this.setElement(this, i, value);
+                        this.setElement(i, value);
                     },
                     configurable: true
                 });
@@ -101,7 +102,7 @@ export default class ArrayWrapper {
             })
         });
         
-        this[defineArrayProperties]();
+        this[propsListener] = this[innerArray].onUpdate(()=>{this[defineArrayProperties]()});
     }
 
     get modelName() {
@@ -113,7 +114,13 @@ export default class ArrayWrapper {
     getElement(index) {
         this[checkDestroyed]();
 
-        return this[transformReturn](this[innerArray][index]);
+        return this[transformReturn](this[innerArray].getElement(index));
+    }
+
+    setElement(index, value) {
+        this[checkDestroyed]();
+
+        this[innerArray].setElement(this, index, value);
     }
 
     get length() {
@@ -185,6 +192,9 @@ export default class ArrayWrapper {
     }
 
     destroy() {
+        if(this[destroyed]) return;
+        
+        this[propsListener].remove();
         this[listeners].forEach((listener)=>{
             listener.remove();
         });

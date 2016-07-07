@@ -1,5 +1,5 @@
 import getOwnKeys from "../utils/getOwnKeys"
-import getOwnPropertyDescriptors from "../utils/getOwnPropertyDescriptors"
+import forEachPrototype from "../utils/forEachPrototype"
 import {primaryKey, properties, elementResponsible} from "./_internals"
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {destroy} from "../event-dispatcher/_internals"
@@ -93,7 +93,10 @@ export default class Model extends RetainEventDispatcher {
 
         this[calculatedFields] = [];
 
-        let descr = getOwnPropertyDescriptors(Object.getPrototypeOf(this));
+        let descr = {};
+        forEachPrototype(this, (proto)=>{
+            descr = Object.assign(descr, Object.getOwnPropertyDescriptors(proto));
+        }, Model);
 
         Object.keys(descr).forEach((key)=> {
             if (reservedWords.indexOf(key) !== -1) return;

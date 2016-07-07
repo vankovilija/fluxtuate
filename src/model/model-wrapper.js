@@ -3,6 +3,8 @@ import getOwnKeys from "../utils/getOwnKeys"
 import reserved from "../model/reserved"
 import {isFunction, isArrayLike} from "lodash/lang"
 import ArrayWrapper from "./array-wrapper"
+import forEachPrototype from "../utils/forEachPrototype"
+import Model from "./model"
 
 const listeners = Symbol("fluxtuateModelWrapper_listeners");
 const refreshListener = Symbol("fluxtuateModelWrapper_refreshListener");
@@ -73,7 +75,10 @@ export default class ModelWrapper {
                     configurable: false
                 });
             });
-            let descriptors = Object.getOwnPropertyDescriptors(Object.getPrototypeOf(wrappedModel));
+            let descriptors = {};
+            forEachPrototype(wrappedModel, (proto)=>{
+                descriptors = Object.assign(descriptors, Object.getOwnPropertyDescriptors(proto));
+            }, Model);
 
             Object.keys(descriptors).filter((key)=>keys.indexOf(key) === -1).forEach((key)=> {
                 if(wrapperKeys.indexOf(key) !== -1 || reserved.indexOf(key) !== -1) return;
