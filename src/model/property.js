@@ -23,8 +23,9 @@ function applyOnTarget(propertyType, isPrimary, JSONPropertyName, target, key, d
         target[primaryKey] = key;
     }
     
-    if(!target[properties])
+    if(Object.getOwnPropertySymbols(target).indexOf(properties) === -1) {
         target[properties] = {};
+    }
     
     target[properties][JSONPropertyName] = {convert: propertyType, modelKey: key, defaultValue: target[key]};
 

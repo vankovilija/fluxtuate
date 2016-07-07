@@ -110,7 +110,8 @@ export default class ObservableArray extends RetainEventDispatcher{
         arrayGetterMethods.forEach((methodName)=>{
             Object.defineProperty(this, methodName, {
                 value: (...args)=>{
-                    return this.modelData[methodName].apply(this[innerArray], args);
+                    let dataArray = this.modelData;
+                    return dataArray[methodName].apply(dataArray, args);
                 },
                 configurable: false
             })

@@ -3,7 +3,7 @@ import forEachPrototype from "../utils/forEachPrototype"
 import {primaryKey, properties, elementResponsible} from "./_internals"
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {destroy} from "../event-dispatcher/_internals"
-import {isFunction, isObject} from "lodash/lang"
+import {isFunction, isObject, cloneDeep} from "lodash/lang"
 import reservedWords from "./reserved"
 import {autobind} from "core-decorators"
 import deepData from "./deep-data"
@@ -13,6 +13,7 @@ const calculatedFields = Symbol("fluxtuateModel_calculatedFields");
 const dispatchUpdate = Symbol("fluxtuateModel_dispatchUpdate");
 const configureDefaultValues = Symbol("fluxtuateModel_configureDefaultValues");
 const isDefault = Symbol("fluxtuateModel_isDefault");
+const propertiesCache = Symbol("fluxtuateModel_propertiesCache");
 
 @autobind
 export default class Model extends RetainEventDispatcher {
@@ -20,30 +21,38 @@ export default class Model extends RetainEventDispatcher {
         super();
         this[data] = {};
 
+        this[propertiesCache] = {};
+
+        forEachPrototype(this, (proto)=>{
+            if(Object.getOwnPropertySymbols(proto).indexOf(properties) !== -1)
+                this[propertiesCache] = Object.assign(this[propertiesCache], cloneDeep(proto[properties]));
+        }, Model);
+
         this[configureDefaultValues] = ()=> {
-            for (let k in this[properties]) {
-                let keyDescriptor = Object.getOwnPropertyDescriptor(this, this[properties][k].modelKey);
+            let props = this[propertiesCache];
+            for (let k in props) {
+                let keyDescriptor = Object.getOwnPropertyDescriptor(this, props[k].modelKey);
                 if(keyDescriptor && keyDescriptor.configurable) {
+                    if(this[props[k].modelKey] !== undefined && props[k].defaultValue === undefined)
+                        props[k].defaultValue = this[props[k].modelKey];
+
                     let self = this;
-                    Object.defineProperty(this, this[properties][k].modelKey, {
+                    Object.defineProperty(this, props[k].modelKey, {
                         get() {
                             return self[data][k];
                         },
                         configurable: false
                     });
-                    
-                    if(this[this[properties][k].modelKey] !== undefined && this[properties][k].defaultValue === undefined)
-                        this[properties][k].defaultValue = this[this[properties][k].modelKey];
                 }
 
-                if (this[properties][k].defaultValue !== undefined && this[data][k] === undefined) {
-                    this[data][k] = this[properties][k].convert(this[properties][k].defaultValue);
+                if (props[k].defaultValue !== undefined && this[data][k] === undefined) {
+                    this[data][k] = props[k].convert(props[k].defaultValue);
                     if(this[data][k] && isFunction(this[data][k].addListener)){
-                        this[properties][k].listener = this[data][k].addListener("update", (ev, payload)=>{
+                        props[k].listener = this[data][k].addListener("update", (ev, payload)=>{
                             this[dispatchUpdate](payload[elementResponsible]);
                         }, 0, false);
                     }
-                    this[properties][k][isDefault] = true;
+                    props[k][isDefault] = true;
                 }
             }
         };
@@ -57,11 +66,12 @@ export default class Model extends RetainEventDispatcher {
                     calcs[k] = this[k];
                 });
                 let mData = {};
-                for (let k in this[properties]) {
+                let props = this[propertiesCache];
+                for (let k in props) {
                     if (this[data][k] !== undefined)
                         mData[k] = this[data][k];
                     else {
-                        mData[k] = this[properties][k].convert(this[properties][k].defaultValue);
+                        mData[k] = props[k].convert(props[k].defaultValue);
                     }
                 }
 
@@ -76,8 +86,9 @@ export default class Model extends RetainEventDispatcher {
                     calcs[k] = this[k];
                 });
                 let mData = {};
-                for (let k in this[properties]) {
-                    if (this[data][k] && !this[properties][k][isDefault])
+                let props = this[propertiesCache];
+                for (let k in props) {
+                    if (this[data][k] && !props[k][isDefault])
                         mData[k] = this[data][k];
                 }
 
@@ -114,24 +125,25 @@ export default class Model extends RetainEventDispatcher {
     }
 
     setKeyValue(key, value, elementR) {
-        if(this[properties][key].listener){
-            this[properties][key].listener.remove();
-            this[properties][key].listener = undefined;
+        let props = this[propertiesCache];
+        if(props[key].listener){
+            props[key].listener.remove();
+            props[key].listener = undefined;
         }
         
         if (this[data][key] && isFunction(this[data][key].setValue)) {
             this[data][key].setValue(value, elementR);
         } else {
-            this[data][key] = this[properties][key].convert(value, this.modelName, key);
+            this[data][key] = props[key].convert(value, this.modelName, key);
         }
 
         if(this[data][key] && isFunction(this[data][key].addListener)){
-            this[properties][key].listener = this[data][key].addListener("update", (ev, payload)=>{
+            props[key].listener = this[data][key].addListener("update", (ev, payload)=>{
                 this[dispatchUpdate](payload[elementResponsible]);
             }, 0, false);
         }
 
-        this[properties][key][isDefault] = false;
+        props[key][isDefault] = false;
 
         this[dispatchUpdate](elementR);
     }
@@ -152,20 +164,21 @@ export default class Model extends RetainEventDispatcher {
 
         for (let i = 0; i < keys.length; i++) {
             let key = keys[i];
+            let props = this[propertiesCache];
 
-            if(!this[properties][key])
+            if(!props[key])
                 continue;
 
             let modelKey = key;
-            if (isObject(this[properties][key])) {
+            if (isObject(props[key])) {
                 let potentialKeyValue = updateData[key];
                 if (this[data][key] && isFunction(this[data][key].update)) {
                     this[data][key].update(potentialKeyValue);
                 } else {
-                    if (isFunction(this[properties][key].convert))
-                        potentialKeyValue = this[properties][key].convert(updateData[key], this.modelName, key);
+                    if (isFunction(props[key].convert))
+                        potentialKeyValue = props[key].convert(updateData[key], this.modelName, key);
 
-                    modelKey = this[properties][key].modelKey;
+                    modelKey = props[key].modelKey;
                     if (this[data][key] && isFunction(this[data][key].merge) && isFunction(potentialKeyValue.merge)) {
                         this[data][key].merge(elementR, potentialKeyValue);
                     } else {
@@ -176,18 +189,18 @@ export default class Model extends RetainEventDispatcher {
                 this[data][key] = updateData[key];
             }
 
-            if(this[properties][key].listener){
-                this[properties][key].listener.remove();
-                this[properties][key].listener = undefined;
+            if(props[key].listener){
+                props[key].listener.remove();
+                props[key].listener = undefined;
             }
             
             if(this[data][key] && isFunction(this[data][key].addListener)){
-                this[properties][key].listener = this[data][key].addListener("update", (ev, payload)=>{
+                props[key].listener = this[data][key].addListener("update", (ev, payload)=>{
                     this[dispatchUpdate](payload[elementResponsible]);
                 }, 0, false);
             }
 
-            let keyDescriptor = Object.getOwnPropertyDescriptor(this, this[properties][key].modelKey);
+            let keyDescriptor = Object.getOwnPropertyDescriptor(this, props[key].modelKey);
             if(keyDescriptor && keyDescriptor.configurable) {
                 let self = this;
                 Object.defineProperty(this, modelKey, {
@@ -198,17 +211,18 @@ export default class Model extends RetainEventDispatcher {
                 });
             }
 
-            this[properties][key][isDefault] = false;
+            props[key][isDefault] = false;
         }
 
         this[dispatchUpdate](elementR);
     }
 
     clear(elementResponsible) {
-        for(let key in this[properties]){
-            if(this[properties][key] && this[properties][key].listener){
-                this[properties][key].listener.remove();
-                this[properties][key].listener = undefined;
+        let props = this[propertiesCache];
+        for(let key in props){
+            if(props[key] && props[key].listener){
+                props[key].listener.remove();
+                props[key].listener = undefined;
             }
         }
         for(let key in this[data]){
