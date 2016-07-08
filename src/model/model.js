@@ -1,6 +1,6 @@
 import getOwnKeys from "../utils/getOwnKeys"
 import forEachPrototype from "../utils/forEachPrototype"
-import {primaryKey, properties, elementResponsible} from "./_internals"
+import {primaryKey, properties, elementResponsible, configureDefaultValues} from "./_internals"
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {destroy} from "../event-dispatcher/_internals"
 import {isFunction, isObject, cloneDeep} from "lodash/lang"
@@ -11,7 +11,6 @@ import deepData from "./deep-data"
 const data = Symbol("fluxtuateModel_data");
 const calculatedFields = Symbol("fluxtuateModel_calculatedFields");
 const dispatchUpdate = Symbol("fluxtuateModel_dispatchUpdate");
-const configureDefaultValues = Symbol("fluxtuateModel_configureDefaultValues");
 const isDefault = Symbol("fluxtuateModel_isDefault");
 const propertiesCache = Symbol("fluxtuateModel_propertiesCache");
 
@@ -238,7 +237,7 @@ export default class Model extends RetainEventDispatcher {
     }
 
     compare(model) {
-        if (!(model instanceof this.prototype)) {
+        if (!(model instanceof this.constructor)) {
             return false;
         }
 

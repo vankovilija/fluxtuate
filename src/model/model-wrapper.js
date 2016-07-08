@@ -1,4 +1,4 @@
-import {model, context, destroyed, checkDestroyed, updateable, constructorProps, arrayConstructor} from "./_internals"
+import {model, context, destroyed, checkDestroyed, updateable, constructorProps, arrayConstructor, configureDefaultValues} from "./_internals"
 import getOwnKeys from "../utils/getOwnKeys"
 import reserved from "../model/reserved"
 import {isFunction, isArrayLike} from "lodash/lang"
@@ -16,6 +16,7 @@ const setupModelValues = Symbol("fluxtuateModelWrapper_setupModelValues");
 
 export default class ModelWrapper {
     constructor (wrappedModel, holderContext) {
+        wrappedModel[configureDefaultValues]();
         this[model] = wrappedModel;
         this[listeners] = [];
         this[context] = holderContext;
