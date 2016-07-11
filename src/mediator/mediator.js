@@ -40,11 +40,20 @@ export default class Mediator {
             }
             if(this[autoDispatches]) {
                 this[autoDispatches].forEach((autoDispatch)=>{
+                    let autoDispatchFunction;
+                    if(isFunction(this[autoDispatch.key])){
+                        autoDispatchFunction = this[autoDispatch.key];
+                    }else{
+                        autoDispatchFunction = (descriptorPayload)=>descriptorPayload;
+                    }
+
                     Object.defineProperty(this, autoDispatch.key, {
                         value: (...args) => {
-                            dispatchFunction(autoDispatch.dispatchKey, autoDispatch.dispatchFunction.apply(this, args));
+                            let returnValue = autoDispatchFunction.apply(this, args);
+                            dispatchFunction(autoDispatch.dispatchKey, returnValue);
+                            return returnValue;
                         },
-                        configurable: false,
+                        configurable: true,
                         writable: false
                     });
                 });

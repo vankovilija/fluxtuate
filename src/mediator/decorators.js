@@ -29,16 +29,9 @@ export function bindModel(bindFunction, ...args) {
 function processDispatchProperty(dispatchKey, target, key, descriptor) {
 
     if(key === undefined ) throw new Error(`You can only bind properties of a mediator!`);
-
-    let dispatchFunction;
-    if(typeof descriptor.value === "function") {
-        dispatchFunction = descriptor.value;
-    }else{
-        dispatchFunction = (descriptorPayload)=>descriptorPayload;
-    }
     
     if(!target[autoDispatches]) target[autoDispatches] = [];
-    target[autoDispatches].push({key, dispatchFunction, dispatchKey});
+    target[autoDispatches].push({key, dispatchKey});
 
     descriptor.configurable = true;
 
