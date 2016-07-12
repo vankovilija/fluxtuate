@@ -137,6 +137,6 @@ export default class CommandMap extends EventDispatcher{
     }
 
     hasEvent(eventName) {
-        return Boolean(this[eventMap][eventName]);
+        return Boolean(this[eventMap][eventName] && this[eventMap][eventName].length > 0);
     }
 }
