@@ -1,6 +1,6 @@
 import inject from "./inject"
-import generics from "./generics"
+import dependencies from "./dependencies"
 
 export default inject;
 
-export {generics}
+export {dependencies}

@@ -1,7 +1,11 @@
 import chainFunctions from "../utils/chainFunctions"
 import {isFunction} from "lodash/lang"
-import {destroy, fluxtuateNameProperty, fluxtuateUpdateFunction, mediate, dispatchFunction} from "./_internals"
+import {destroy, fluxtuateNameProperty, fluxtuateUpdateFunction, mediate, dispatchFunction, mediator as MediatorKey} from "./_internals"
 import {applyMediatorContext} from "../context/_internals"
+import Model from "../model"
+import MediatorModelWrapper from "./mediator-model-wrapper"
+import ModelWrapper from "../model/model-wrapper"
+import {model} from "../model/_internals"
 
 const props = Symbol("props");
 const mediator = Symbol("fluxtuateController_mediator");
@@ -67,7 +71,24 @@ export default class MediatorController {
         this[createMediator] = (view, mediatorClass, properties) => {
             let med;
             if(properties) {
-                med = new (Function.prototype.bind.apply(mediatorClass, [this, ...properties]));
+                let injectedModels = [];
+                let convertedProperties = properties.map((prop)=>{
+                    if(prop instanceof ModelWrapper){
+                        prop = prop[model];
+                    }
+
+                    if(prop instanceof Model){
+                        let modelWrapper = new MediatorModelWrapper(prop, this[context]);
+                        injectedModels.push(modelWrapper);
+                        return modelWrapper;
+                    }
+
+                    return prop;
+                });
+                med = new (Function.prototype.bind.apply(mediatorClass, [this, ...convertedProperties]));
+                injectedModels.forEach((modelWrapper)=>{
+                    modelWrapper[MediatorKey] = med;
+                });
             }else{
                 med = new mediatorClass();
             }

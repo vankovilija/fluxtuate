@@ -3,8 +3,11 @@ import {isFunction} from "lodash/lang"
 import {findIndex} from "lodash/array"
 import {applyCommandContext} from "../context/_internals"
 import Command from "./command"
-import {destroy, pause, resume, event as eventKey, eventPayload as eventPayloadKey} from "./_internals"
-import Promise from "bluebird"
+import {destroy, pause, resume, event as eventKey, eventPayload as eventPayloadKey, command as CommandKey} from "./_internals"
+import CommandModelWrapper from "./command-model-wrapper"
+import Model from "../model"
+import ModelWrapper from "../model/model-wrapper"
+import {model} from "../model/_internals"
 
 const eventMap = Symbol("fluxtuateCommandMap_eventMap");
 const addCommand = Symbol("fluxtuateCommandMap_addCommand");
@@ -60,7 +63,24 @@ export default class CommandMap extends EventDispatcher{
             commandMappings.forEach((commandObject)=>{
                 let command;
                 if(commandObject.commandProperties){
-                    command = new (Function.prototype.bind.apply(commandObject.command, [this, ...commandObject.commandProperties]));
+                    let injectedModels = [];
+                    let convertedProperties = commandObject.commandProperties.map((prop)=>{
+                        if(prop instanceof ModelWrapper){
+                            prop = prop[model];
+                        }
+                        
+                        if(prop instanceof Model){
+                            let modelWrapper = new CommandModelWrapper(prop, context);
+                            injectedModels.push(modelWrapper);
+                            return modelWrapper;
+                        }
+
+                        return prop;
+                    });
+                    command = new (Function.prototype.bind.apply(commandObject.command, [this, ...convertedProperties]));
+                    injectedModels.forEach((modelWrapper)=>{
+                        modelWrapper[CommandKey] = command;
+                    });
                 }else{
                     command = new commandObject.command();
                 }

@@ -1,7 +1,7 @@
 import Command from "./command"
 import Mediator, {bindModel, autoDispatch} from "./mediator"
 import Context from "./context"
-import inject, {generics} from "./inject"
+import inject, {dependencies} from "./inject"
 import Model, {PropTypes, property} from "./model"
 
 export {
@@ -11,7 +11,7 @@ export {
     autoDispatch,
     Context,
     inject,
-    generics,
+    dependencies,
     Model,
     PropTypes,
     property
