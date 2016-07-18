@@ -3,7 +3,7 @@ import {isFunction} from "lodash/lang"
 import {findIndex} from "lodash/array"
 import {applyCommandContext} from "../context/_internals"
 import Command from "./command"
-import {destroy, pause, resume} from "./_internals"
+import {destroy, pause, resume, event as eventKey, eventPayload as eventPayloadKey} from "./_internals"
 import Promise from "bluebird"
 
 const eventMap = Symbol("fluxtuateCommandMap_eventMap");
@@ -30,7 +30,7 @@ export default class CommandMap extends EventDispatcher{
             this[eventMap] = {};
         };
 
-        this[addCommand] = (eventName, command, commandName, oneShot)=>{
+        this[addCommand] = (eventName, command, commandProperties, oneShot)=>{
             if((command === Command) || !(command.prototype instanceof Command))
                 throw new Error("Commands must extend the Command class!");
 
@@ -40,11 +40,12 @@ export default class CommandMap extends EventDispatcher{
 
             if(!this[eventMap][eventName]) this[eventMap][eventName] = [];
 
-            if(!commandName) commandName = eventName + " (" + this[eventMap][eventName].length + ")";
+            let commandName = eventName + " (" + this[eventMap][eventName].length + ")";
 
             this[eventMap][eventName].push({
                 command: command,
                 commandName: commandName,
+                commandProperties: commandProperties,
                 oneShot: oneShot,
                 listener: this[eventDispatcher].addListener(eventName, this[executeCommandFromEvent])
             });
@@ -57,7 +58,14 @@ export default class CommandMap extends EventDispatcher{
             let commandMappings = this[eventMap][eventName].slice();
             let commands = [];
             commandMappings.forEach((commandObject)=>{
-                let command = new commandObject.command(eventName, payload);
+                let command;
+                if(commandObject.commandProperties){
+                    command = new (Function.prototype.bind.apply(commandObject.command, [this, ...commandObject.commandProperties]));
+                }else{
+                    command = new commandObject.command();
+                }
+                command[eventKey] = eventName;
+                command[eventPayloadKey] = payload;
                 context[applyCommandContext](command, {payload: payload});
                 commands.push(command);
             });
@@ -108,12 +116,12 @@ export default class CommandMap extends EventDispatcher{
     mapEvent(eventName, command){
         let self = this;
         let r = {
-            toCommand(command, commandName) {
-                self[addCommand](eventName, command, commandName, false);
+            toCommand(command, ...commandProps) {
+                self[addCommand](eventName, command, commandProps, false);
                 return self;
             },
-            once(command, commandName){
-                self[addCommand](eventName, command, commandName, true);
+            once(command, ...commandProps){
+                self[addCommand](eventName, command, commandProps, true);
                 return self;
             }
         };

@@ -2,6 +2,7 @@ import Delegator from "../delegator"
 import Mediator from "./mediator"
 import {destroy, pause, resume, mapRemoved, viewCreated, viewDestroyed, viewDelegator, fluxtuateView, fluxtuateNameProperty} from "./_internals"
 import Controller from "./mediator-controller"
+import {findIndex} from "lodash/array"
 
 const mediatorMap = Symbol("fluxtuateMediatorMap__mediatorMap");
 const controllerDelegator = Symbol("fluxtuateMediatorMap__controllerDelegator");
@@ -19,7 +20,10 @@ export default class MediatorMap {
         this[mediatorMap] = {};
         
         this[viewCreated] = (view, viewClass, creationContext) => {
-            if(creationContext && creationContext !== context && !creationContext.isChildOf(context)) return;
+            if(!creationContext){
+                throw new Error("You must have a context when creating a view! View was created outside of a context!");
+            }
+            if(creationContext !== context && !creationContext.isChildOf(context)) return;
             if(this[isPuased]) return;
             let viewClassName = viewClass[viewClass[fluxtuateNameProperty]];
             let {mediatorClasses} = this[mediatorMap][viewClassName];
@@ -48,7 +52,7 @@ export default class MediatorMap {
                 let {viewClass, mediatorClasses} = this[mediatorMap][key];
                 mediatorClasses = mediatorClasses.slice();
                 mediatorClasses.forEach((mediator)=>{
-                    this.unpamView(viewClass, mediator);
+                    this.unpamView(viewClass, mediator.mediatorClass);
                 });
                 viewClass[viewDelegator].detachDelegate(this);
             }
@@ -57,7 +61,7 @@ export default class MediatorMap {
         }
     }
     
-    mapView (view, mediator) {
+    mapView (view, mediator, ...props) {
         if((mediator === Mediator) || !(mediator.prototype instanceof Mediator))
             throw new Error("Your mediators must inherit fluxtuates Mediator class!");
 
@@ -74,7 +78,7 @@ export default class MediatorMap {
             mediatorClasses = this[mediatorMap][viewClassName].mediatorClasses;
         }
 
-        mediatorClasses.push(mediator);
+        mediatorClasses.push({mediatorClass: mediator, props});
 
         this[mediatorMap][viewClassName] = {viewClass: view, mediatorClasses: mediatorClasses};
 
@@ -87,7 +91,7 @@ export default class MediatorMap {
 
         let { mediatorClasses } = this[mediatorMap][viewClassName];
 
-        let index = mediatorClasses.indexOf(mediator);
+        let index = findIndex(mediatorClasses,{mediatorClass: mediator});
 
         if(index === -1) return;
 

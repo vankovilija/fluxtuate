@@ -1,7 +1,7 @@
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import deepData from "./deep-data"
 import {primaryKey, elementResponsible} from "./_internals"
-import {isFunction, isNumber} from "lodash/lang"
+import {isFunction} from "lodash/lang"
 import {destroy} from "../event-dispatcher/_internals"
 
 const innerArray = Symbol("fluxtuateObservableArray_innerArray");

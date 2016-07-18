@@ -3,7 +3,7 @@
   "logo": {
     "file": "./logo.png"
   },
-  "version": "0.0.69",
+  "version": "0.0.73",
   "description": "a javascript ES7 library for handling complex data transactions",
   "main": "lib/index.js",
   "scripts": {

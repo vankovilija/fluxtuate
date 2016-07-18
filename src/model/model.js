@@ -28,6 +28,7 @@ export default class Model extends RetainEventDispatcher {
         }, Model);
 
         this[configureDefaultValues] = ()=> {
+            let shouldUpdate = false;
             let props = this[propertiesCache];
             for (let k in props) {
                 let keyDescriptor = Object.getOwnPropertyDescriptor(this, props[k].modelKey);
@@ -46,6 +47,7 @@ export default class Model extends RetainEventDispatcher {
 
                 if (props[k].defaultValue !== undefined && this[data][k] === undefined) {
                     this[data][k] = props[k].convert(props[k].defaultValue);
+                    shouldUpdate = true;
                     if(this[data][k] && isFunction(this[data][k].addListener)){
                         props[k].listener = this[data][k].addListener("update", (ev, payload)=>{
                             this[dispatchUpdate](payload[elementResponsible]);
@@ -53,6 +55,9 @@ export default class Model extends RetainEventDispatcher {
                     }
                     props[k][isDefault] = true;
                 }
+            }
+            if(shouldUpdate){
+                this[dispatchUpdate](this);
             }
         };
 

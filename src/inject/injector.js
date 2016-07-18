@@ -1,34 +1,21 @@
 import {autobind} from "core-decorators"
 import getOwnPropertyDescriptors from "../utils/getOwnPropertyDescriptors"
-import {getInjectValue, globalValues, defaultValues, injectionKey, isPropertyInjection} from "./_internals"
+import {getInjectValue, globalValues, defaultValues, injectionKey, isPropertyInjection, injectionValueMap} from "./_internals"
 import {isObject} from "lodash/lang"
 
 const reservedWords = ["view", "payload"];
-const injectionValueMap = Symbol("fluxtuateInjector_injectionValueMap");
 const injectionPropertyMap = Symbol("fluxtuateInjector_injectionPropertyMap");
 const injectionClassMap = Symbol("fluxtuateInjector_injectionClassMap");
 const hasInjection = Symbol("fluxtuateInjector_hasInjection");
 
 @autobind
 export default class Injector {
-    constructor(context, eventDispatcher, mediatorMap, commandMap){
+    constructor(){
         this[injectionValueMap] = {};
         this[injectionPropertyMap] = {};
         this[injectionClassMap] = {};
-        this[defaultValues] = {
-            "injector": "Gets the default injection for the context",
-            "mediatorMap": "Retrieves the map of mediators",
-            "commandMap": "Retrieves the map of commands",
-            "eventDispatcher": "Gets the event dispatcher for the context",
-            "context": "Retrieves the current context"
-        };
+        this[defaultValues] = {};
         this[globalValues] = [];
-
-        this[injectionValueMap]["eventDispatcher"] = eventDispatcher;
-        this[injectionValueMap]["mediatorMap"] = mediatorMap;
-        this[injectionValueMap]["commandMap"] = commandMap;
-        this[injectionValueMap]["context"] = context;
-        this[injectionValueMap]["injector"] = this;
         
         this[getInjectValue] = (iKey, defaultInjection = {})=> {
             let value;
@@ -54,7 +41,7 @@ export default class Injector {
 
     mapKey(key) {
         if(reservedWords.indexOf(key) !== -1) throw new Error(`"${key}" is a reserved word, use a different mapping for this value!`);
-        if(Object.keys(this[defaultValues]).indexOf(key) !== -1) throw new Error(`"${key}" is a reserved value in the context! ${this[defaultValues][key]}.`);
+        if(Object.keys(this[defaultValues]).indexOf(key) !== -1) throw new Error(`"${key}" is a reserved value in the injector! ${this[defaultValues][key]}.`);
         if(this[injectionValueMap][key]) throw new Error(`The key ${key} is already injected to value: ${this[injectionValueMap][key]}`);
         if(this[injectionPropertyMap][key]) throw new Error(`The key ${key} is already injected to value: ${this[injectionPropertyMap][key]}`);
         var self = this;
@@ -161,9 +148,9 @@ export default class Injector {
         let descriptors = {};
         let possibleInjections = Object.assign({}, defaultInjection, this[injectionValueMap], this[injectionPropertyMap], this[injectionClassMap]);
 
-        let injectionSigniture = JSON.stringify(Object.keys(possibleInjections));
+        let injectionSignature = JSON.stringify(Object.keys(possibleInjections));
 
-        if(instance[hasInjection] === injectionSigniture) return;
+        if(instance[hasInjection] === injectionSignature) return;
 
         while(descriptorsInstance && descriptorsInstance !== Object.prototype) {
             descriptors = Object.assign(descriptors, getOwnPropertyDescriptors(descriptorsInstance));
@@ -207,7 +194,7 @@ export default class Injector {
                 configurable: false
             });
 
-            instance[hasInjection] = injectionSigniture
+            instance[hasInjection] = injectionSignature
         }
 
         return instance;

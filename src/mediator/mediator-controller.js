@@ -1,6 +1,6 @@
 import chainFunctions from "../utils/chainFunctions"
 import {isFunction} from "lodash/lang"
-import {destroy, fluxtuateNameProperty, fluxtuateUpdateFunction, mediate} from "./_internals"
+import {destroy, fluxtuateNameProperty, fluxtuateUpdateFunction, mediate, dispatchFunction} from "./_internals"
 import {applyMediatorContext} from "../context/_internals"
 
 const props = Symbol("props");
@@ -39,8 +39,8 @@ export default class MediatorController {
                 });
             };
             
-            mediatorClasses.forEach((mediatorClass)=>{
-                this[createMediator](view, mediatorClass);
+            mediatorClasses.forEach((mediator)=>{
+                this[createMediator](view, mediator.mediatorClass, mediator.props);
             });
             let viewsArray = this[views][viewClass[viewClass[fluxtuateNameProperty]]];
             if(!viewsArray) viewsArray = [];
@@ -64,8 +64,14 @@ export default class MediatorController {
             }
         };
 
-        this[createMediator] = (view, mediatorClass) => {
-            let med = new mediatorClass(this[context].dispatch);
+        this[createMediator] = (view, mediatorClass, properties) => {
+            let med;
+            if(properties) {
+                med = new (Function.prototype.bind.apply(mediatorClass, [this, ...properties]));
+            }else{
+                med = new mediatorClass();
+            }
+            med[dispatchFunction] = this[context].dispatch;
             med.setProps = chainFunctions(updateMediatorProps.bind(med, this[context][contextMediatorCallback], view), view[view[fluxtuateUpdateFunction]], updatedProps.bind(med, this[context][contextMediatorCallback], view));
             med[props] = Object.assign({},view.props);
 

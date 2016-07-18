@@ -1,10 +1,9 @@
-import {event, eventPayload} from "./_internals"
 import Promise from "bluebird"
 
 const releasePromise = Symbol("fluxtuateCommand_releasePromise");
 
 export default class Command {
-    constructor(responsibleEvent, responsibleEventPayload) {
+    constructor() {
         this[releasePromise] = new Promise((release)=>{
             Object.defineProperty(this, "release", {
                 get() {
@@ -22,9 +21,6 @@ export default class Command {
                 };
             }
         });
-
-        this[event] = responsibleEvent;
-        this[eventPayload] = responsibleEventPayload;
     }
 
     execute() {}
