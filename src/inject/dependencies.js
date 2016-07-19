@@ -9,7 +9,7 @@ function returnDependantClass(classDependencies, classObject){
 
     return class DependenciesClass extends classObject{
         constructor(...props) {
-            super();
+            super(...props);
             if(props.length < classDependencies.length + previousDependenciesLength) {
                 throw new Error(`You must provide the dependencies when constructing a new object of ${classObject}!! ${JSON.stringify(classDependencies)}`);
             }
