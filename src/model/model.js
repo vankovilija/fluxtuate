@@ -13,12 +13,18 @@ const calculatedFields = Symbol("fluxtuateModel_calculatedFields");
 const dispatchUpdate = Symbol("fluxtuateModel_dispatchUpdate");
 const isDefault = Symbol("fluxtuateModel_isDefault");
 const propertiesCache = Symbol("fluxtuateModel_propertiesCache");
+const dataCache = Symbol("fluxtuateModel_dataCache");
+const cleanDataCache = Symbol("fluxtuateModel_cleanDataCache");
+const dataCacheValid = Symbol("fluxtuateModel_cacheValid");
+const cleanCacheValid = Symbol("fluxtuateModel_cleanCacheValid");
 
 @autobind
 export default class Model extends RetainEventDispatcher {
     constructor(modelName) {
         super();
         this[data] = {};
+        this[dataCacheValid] = false;
+        this[cleanCacheValid] = false;
 
         this[propertiesCache] = {};
 
@@ -65,38 +71,48 @@ export default class Model extends RetainEventDispatcher {
 
         Object.defineProperty(this, "modelData", {
             get() {
-                let calcs = {};
-                this[calculatedFields].forEach((k)=> {
-                    calcs[k] = this[k];
-                });
-                let mData = {};
-                let props = this[propertiesCache];
-                for (let k in props) {
-                    if (this[data][k] !== undefined)
-                        mData[k] = this[data][k];
-                    else {
-                        mData[k] = props[k].convert(props[k].defaultValue);
+                if(!this[dataCacheValid]){
+                    let calcs = {};
+                    this[calculatedFields].forEach((k)=> {
+                        calcs[k] = this[k];
+                    });
+                    let mData = {};
+                    let props = this[propertiesCache];
+                    for (let k in props) {
+                        if (this[data][k] !== undefined) {
+                            mData[k] = this[data][k];
+                        } else {
+                            mData[k] = props[k].convert(props[k].defaultValue);
+                        }
                     }
+
+                    this[dataCache] = deepData(Object.assign(mData, calcs), "modelData");
+                    this[dataCacheValid] = true;
                 }
 
-                return deepData(Object.assign(mData, calcs), "modelData");
+                return this[dataCache];
             }
         });
 
         Object.defineProperty(this, "cleanData", {
             get() {
-                let calcs = {};
-                this[calculatedFields].forEach((k)=> {
-                    calcs[k] = this[k];
-                });
-                let mData = {};
-                let props = this[propertiesCache];
-                for (let k in props) {
-                    if (this[data][k] && !props[k][isDefault])
-                        mData[k] = this[data][k];
+                if(!this[cleanCacheValid]) {
+                    let calcs = {};
+                    this[calculatedFields].forEach((k)=> {
+                        calcs[k] = this[k];
+                    });
+                    let mData = {};
+                    let props = this[propertiesCache];
+                    for (let k in props) {
+                        if (this[data][k] && !props[k][isDefault])
+                            mData[k] = this[data][k];
+                    }
+
+                    this[cleanDataCache] = deepData(Object.assign(mData, calcs), "cleanData");
+                    this[cleanCacheValid] = true;
                 }
 
-                return deepData(Object.assign(mData, calcs), "cleanData");
+                return this[cleanDataCache];
             }
         });
 
@@ -124,6 +140,8 @@ export default class Model extends RetainEventDispatcher {
         this[dispatchUpdate] = function (elementR) {
             let payload = {data: this.modelData, name: this.modelName};
             payload[elementResponsible] = elementR;
+            this[cleanCacheValid] = false;
+            this[dataCacheValid] = false;
             this.dispatch("update", payload);
         }
     }

@@ -13,6 +13,10 @@ const checkDestroyed = Symbol("fluxtuateObservableArray_checkDestroyed");
 const elementListeners = Symbol("fluxtuateObservableArray_elementListeners");
 const arrayConverter = Symbol("fluxtuateObservableArray_arrayConvertor");
 const arrayParent = Symbol("fluxtuateObservableArray_arrayParent");
+const dataCache = Symbol("fluxtuateObservableArray_dataCache");
+const cleanDataCache = Symbol("fluxtuateObservableArray_cleanDataCache");
+const dataCacheValid = Symbol("fluxtuateObservableArray_dataCacheValid");
+const cleanDataCacheValid = Symbol("fluxtuateObservableArray_cleanDataCacheValid");
 const configureElementListeners = Symbol("fluxtuateObservableArray_configureElementListeners");
 const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift"];
 const arrayGetterMethods = ["slice", "indexOf", "map"];
@@ -27,6 +31,8 @@ export default class ObservableArray extends RetainEventDispatcher{
         this[listeners] = [];
         this[destroyed] = false;
         this[elementListeners] = [];
+        this[dataCacheValid] = false;
+        this[cleanDataCacheValid] = false;
         this[checkDestroyed] = ()=>{
             if(this[destroyed]){
                 throw new Error("You are trying to access a destroyed array!");
@@ -85,6 +91,8 @@ export default class ObservableArray extends RetainEventDispatcher{
                 data: this.modelData, name: this.modelName
             };
             payload[elementResponsible] = elementR;
+            this[dataCacheValid] = false;
+            this[cleanDataCacheValid] = false;
             this.dispatch("update", payload);
         };
         arraySetterMethods.forEach((methodName)=>{
@@ -170,17 +178,27 @@ export default class ObservableArray extends RetainEventDispatcher{
     get modelData() {
         this[checkDestroyed]();
 
-        let wrapper = {data: this[innerArray].slice()};
-        let deep = deepData(wrapper, "modelData");
-        return deep.data;
+        if(!this[dataCacheValid]) {
+            let wrapper = {data: this[innerArray].slice()};
+            let deep = deepData(wrapper, "modelData");
+            this[dataCache] = deep.data;
+            this[dataCacheValid] = true;
+        }
+
+        return this[dataCache];
     }
 
     get cleanData() {
         this[checkDestroyed]();
 
-        let wrapper = {data: this[innerArray].slice()};
-        let deep = deepData(wrapper, "cleanData");
-        return deep.data;
+        if(!this[cleanDataCacheValid]) {
+            let wrapper = {data: this[innerArray].slice()};
+            let deep = deepData(wrapper, "cleanData");
+            this[cleanDataCache] = deep.data;
+            this[cleanDataCacheValid] = true;
+        }
+
+        return this[cleanDataCache];
     }
 
     find(id){

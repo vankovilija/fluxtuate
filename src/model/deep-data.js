@@ -27,6 +27,8 @@ export default function deepData(model, deepDataProperty) {
             o[prop] = processProp(o[prop], deepDataProperty);
         }
     });
+    
+    Object.freeze(o);
 
     return o;
 }
