@@ -86,13 +86,13 @@ export default class ObservableArray extends RetainEventDispatcher{
         };
 
         this[sendUpdate] = (elementR, oldData)=>{
+            this[dataCacheValid] = false;
+            this[cleanDataCacheValid] = false;
             this[configureElementListeners](oldData);
             let payload = {
                 data: this.modelData, name: this.modelName
             };
             payload[elementResponsible] = elementR;
-            this[dataCacheValid] = false;
-            this[cleanDataCacheValid] = false;
             this.dispatch("update", payload);
         };
         arraySetterMethods.forEach((methodName)=>{

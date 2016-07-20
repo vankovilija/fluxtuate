@@ -138,10 +138,10 @@ export default class Model extends RetainEventDispatcher {
         });
 
         this[dispatchUpdate] = function (elementR) {
-            let payload = {data: this.modelData, name: this.modelName};
-            payload[elementResponsible] = elementR;
             this[cleanCacheValid] = false;
             this[dataCacheValid] = false;
+            let payload = {data: this.modelData, name: this.modelName};
+            payload[elementResponsible] = elementR;
             this.dispatch("update", payload);
         }
     }
