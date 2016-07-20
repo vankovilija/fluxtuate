@@ -1,7 +1,8 @@
 import chainFunctions from "../utils/chainFunctions"
 import {isFunction} from "lodash/lang"
 import {destroy, fluxtuateNameProperty, fluxtuateUpdateFunction, mediate, dispatchFunction, mediator as MediatorKey} from "./_internals"
-import {applyMediatorContext} from "../context/_internals"
+import {applyMediatorContext, applyGuardContext} from "../context/_internals"
+import {approveGuard} from "../guard/_internals"
 import Model from "../model"
 import MediatorModelWrapper from "./mediator-model-wrapper"
 import ModelWrapper from "../model/model-wrapper"
@@ -44,7 +45,46 @@ export default class MediatorController {
             };
             
             mediatorClasses.forEach((mediator)=>{
-                this[createMediator](view, mediator.mediatorClass, mediator.props);
+                if(mediator.guard){
+                    let guard;
+                    if(mediator.guardProperties) {
+                        let convertedProperties = mediator.guardProperties.map((prop)=>{
+                            if(prop instanceof ModelWrapper){
+                                prop = prop[model];
+                            }
+
+                            if(prop instanceof Model){
+                                return new ModelWrapper(prop, this[context]);
+                            }
+
+                            return prop;
+                        });
+                        guard = new (Function.prototype.bind.apply(mediator.guard, [this, ...convertedProperties]));
+                    }else{
+                        guard = new mediator.guard();
+                    }
+
+                    Object.defineProperty(guard, "props", {
+                        get () {
+                            return Object.assign({},view.props);
+                        }
+                    });
+
+                    this[context][applyGuardContext](guard, {view: view});
+
+                    if(!isFunction(guard[approveGuard])){
+                        throw new Error(`Guards must have a approve function! ${guard}`);
+                    }
+                    guard[approveGuard]().then((isApproved)=> {
+                        if (isFunction(guard.destroy))
+                            guard.destroy();
+                        if (!isApproved) return;
+
+                        this[createMediator](view, mediator.mediatorClass, mediator.props);
+                    });
+                } else {
+                    this[createMediator](view, mediator.mediatorClass, mediator.props);
+                }
             });
             let viewsArray = this[views][viewClass[viewClass[fluxtuateNameProperty]]];
             if(!viewsArray) viewsArray = [];

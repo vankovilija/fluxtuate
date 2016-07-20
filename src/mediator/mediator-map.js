@@ -78,11 +78,17 @@ export default class MediatorMap {
             mediatorClasses = this[mediatorMap][viewClassName].mediatorClasses;
         }
 
-        mediatorClasses.push({mediatorClass: mediator, props});
+        let mediatorObject = {mediatorClass: mediator, props};
+        mediatorClasses.push(mediatorObject);
 
         this[mediatorMap][viewClassName] = {viewClass: view, mediatorClasses: mediatorClasses};
 
-        return view;
+        return {
+            withGuard(guard, ...guardProperties){
+                mediatorObject.guard = guard;
+                mediatorObject.guardProperties = guardProperties;
+            }
+        };
     }
     unpamView(view, mediator) {
         let viewClassName = view[view[fluxtuateNameProperty]];

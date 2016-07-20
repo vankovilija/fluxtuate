@@ -20,13 +20,13 @@ export default class Injector {
         this[getInjectValue] = (iKey, defaultInjection = {})=> {
             let value;
             
-            if (this[injectionValueMap][iKey])
+            if (this[injectionValueMap][iKey] !== undefined)
                 value = this[injectionValueMap][iKey];
-            else if (this[injectionPropertyMap][iKey])
+            else if (this[injectionPropertyMap][iKey] !== undefined)
                 value = this[injectionPropertyMap][iKey];
-            else if (this[injectionClassMap][iKey])
+            else if (this[injectionClassMap][iKey] !== undefined)
                 value = this[injectionClassMap][iKey];
-            else if (defaultInjection[iKey])
+            else if (defaultInjection[iKey] !== undefined)
                 value = defaultInjection[iKey];
 
             if(value[isPropertyInjection]){
@@ -172,7 +172,7 @@ export default class Injector {
 
             let iKey = desc.value[injectionKey];
 
-            if (typeof desc.value === "function" || !iKey || !possibleInjections[iKey]) {
+            if (typeof desc.value === "function" || !iKey || possibleInjections[iKey] === undefined) {
                 continue;
             }
 

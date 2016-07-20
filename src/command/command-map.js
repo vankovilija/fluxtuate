@@ -1,9 +1,10 @@
 import EventDispatcher from "../event-dispatcher"
-import {isFunction} from "lodash/lang"
+import {isFunction, isString} from "lodash/lang"
 import {findIndex} from "lodash/array"
-import {applyCommandContext} from "../context/_internals"
+import {applyCommandContext, applyGuardContext} from "../context/_internals"
 import Command from "./command"
 import {destroy, pause, resume, event as eventKey, eventPayload as eventPayloadKey, command as CommandKey} from "./_internals"
+import {approveGuard} from "../guard/_internals"
 import CommandModelWrapper from "./command-model-wrapper"
 import Model from "../model"
 import ModelWrapper from "../model/model-wrapper"
@@ -14,10 +15,12 @@ const addCommand = Symbol("fluxtuateCommandMap_addCommand");
 const executeCommandFromEvent = Symbol("fluxtuateCommandMap_executeCommandFromEvent");
 const eventDispatcher = Symbol("fluxtuateCommandMap_eventDispatcher");
 const isPaused = Symbol("fluxtuateCommandMap_isPaused");
+const commandsContext = Symbol("fluxtuateCommandMap_commandsContext");
 
 export default class CommandMap extends EventDispatcher{
     constructor(ed, context) {
         super();
+        this[commandsContext] = context;
         this[eventMap] = {};
         this[isPaused] = false;
 
@@ -45,83 +48,134 @@ export default class CommandMap extends EventDispatcher{
 
             let commandName = eventName + " (" + this[eventMap][eventName].length + ")";
 
-            this[eventMap][eventName].push({
+            let commandObject = {
                 command: command,
                 commandName: commandName,
                 commandProperties: commandProperties,
                 oneShot: oneShot,
                 listener: this[eventDispatcher].addListener(eventName, this[executeCommandFromEvent])
-            });
+            };
+
+            this[eventMap][eventName].push(commandObject);
+            return commandObject;
 
         };
 
         this[executeCommandFromEvent] = (eventName, payload) => {
             if(this[isPaused]) return;
 
-            let commandMappings = this[eventMap][eventName].slice();
-            let commands = [];
-            commandMappings.forEach((commandObject)=>{
-                let command;
-                if(commandObject.commandProperties){
-                    let injectedModels = [];
-                    let convertedProperties = commandObject.commandProperties.map((prop)=>{
-                        if(prop instanceof ModelWrapper){
-                            prop = prop[model];
-                        }
-                        
-                        if(prop instanceof Model){
-                            let modelWrapper = new CommandModelWrapper(prop, context);
-                            injectedModels.push(modelWrapper);
-                            return modelWrapper;
-                        }
+            let commandCount = 0;
+            let completeCount = 0;
 
-                        return prop;
+            function completeCommandForEvent(command, eventName, payload, commandObject){
+                if(commandObject.oneShot){
+                    this.unmapEvent(eventName, commandObject.command);
+                }
+                completeCount++;
+                if(isFunction(command.destroy)){
+                    command.destroy();
+                }
+                if(commandCount === completeCount) {
+                    this.dispatch("complete", {event: eventName, payload: payload});
+                }
+            }
+
+            let executeInEvent = (eventName, payload, commandObject)=>{
+                commandCount++;
+                let command = this.executeCommand(eventName, commandObject.command, payload, ...commandObject.commandProperties);
+                if(!command.commandName) {
+                    Object.defineProperty(command, "commandName", {
+                        get() {
+                            return context.contextName + "->" + commandObject.commandName;
+                        }
                     });
-                    command = new (Function.prototype.bind.apply(commandObject.command, [this, ...convertedProperties]));
-                    injectedModels.forEach((modelWrapper)=>{
-                        modelWrapper[CommandKey] = command;
+                }
+                command.onComplete(completeCommandForEvent.bind(this, command, eventName, payload, commandObject));
+            };
+
+            let commandMappings = this[eventMap][eventName].slice();
+            commandMappings.forEach((commandObject)=>{
+                if(commandObject.guard){
+                    let guard;
+                    if(commandObject.guardProperties) {
+                        let convertedProperties = commandObject.guardProperties.map((prop)=>{
+                            if(prop instanceof ModelWrapper){
+                                prop = prop[model];
+                            }
+
+                            if(prop instanceof Model){
+                                return new ModelWrapper(prop, context);
+                            }
+                            
+                            return prop;
+                        });
+                        guard = new (Function.prototype.bind.apply(commandObject.guard, [this, ...convertedProperties]));
+                    }else{
+                        guard = new commandObject.guard();
+                    }
+                    context[applyGuardContext](guard, {payload: payload});
+                    if(!isFunction(guard[approveGuard])){
+                        throw new Error(`Guards must have a approve function! ${guard}`);
+                    }
+                    guard[approveGuard]().then((isApproved)=> {
+                        if(isFunction(guard.destroy))
+                            guard.destroy();
+                        if (!isApproved) return;
+
+                        executeInEvent(eventName, payload, commandObject);
                     });
                 }else{
-                    command = new commandObject.command();
+                    executeInEvent(eventName, payload, commandObject);
                 }
-                command[eventKey] = eventName;
-                command[eventPayloadKey] = payload;
-                context[applyCommandContext](command, {payload: payload});
-                commands.push(command);
             });
 
-            setTimeout(()=>{
-                commands.forEach((command, index)=>{
-                    if(!command.commandName) {
-                        Object.defineProperty(command, "commandName", {
-                            get() {
-                                return context.contextName + "->" + commandMappings[index].commandName;
-                            }
-                        });
-                    }
-                    command.execute();
-                    if(commandMappings[index].oneShot){
-                        this.unmapEvent(eventName, commandMappings[index].command);
-                    }
-                });
-            }, 0);
-
-            if(commands.length > 0) {
-                let completeCount = 0;
-                commands.forEach((command)=> {
-                    command.onComplete(()=> {
-                        completeCount++;
-                        if(commands.length === completeCount) {
-                            this.dispatch("complete", {event: eventName, payload: payload});
-                        }
-                    });
-                });
-            } else {
+            if(commandCount === 0) {
                 this.dispatch("complete", {event: eventName, payload: payload});
             }
         };
 
         this[eventDispatcher] = ed;
+    }
+
+    executeCommand(commandConstructor, payload, ...commandProperties){
+        let command;
+        let eventName = "DirectCommandExecution";
+        if(isString(commandConstructor)){
+            eventName = commandConstructor;
+            commandConstructor = payload;
+            payload = commandProperties[0];
+            commandProperties = commandProperties.slice(1);
+        }
+        if(commandProperties){
+            let injectedModels = [];
+            let convertedProperties = commandProperties.map((prop)=>{
+                if(prop instanceof ModelWrapper){
+                    prop = prop[model];
+                }
+
+                if(prop instanceof Model){
+                    let modelWrapper = new CommandModelWrapper(prop, this[commandsContext]);
+                    injectedModels.push(modelWrapper);
+                    return modelWrapper;
+                }
+
+                return prop;
+            });
+            command = new (Function.prototype.bind.apply(commandConstructor, [this, ...convertedProperties]));
+            injectedModels.forEach((modelWrapper)=>{
+                modelWrapper[CommandKey] = command;
+            });
+        }else{
+            command = new commandConstructor();
+        }
+        command[eventKey] = eventName;
+        command[eventPayloadKey] = payload;
+        this[commandsContext][applyCommandContext](command, {payload: payload});
+        setTimeout(()=>{
+            command.execute();
+        }, 0);
+
+        return command;
     }
 
     onComplete(callback){
@@ -133,23 +187,29 @@ export default class CommandMap extends EventDispatcher{
         });
     }
 
-    mapEvent(eventName, command){
+    mapEvent(eventName){
         let self = this;
-        let r = {
+        
+        function guardReturn(commandObject){
+            return {
+                withGuard(guardClass, ...guardProperties){
+                    commandObject.guard = guardClass;
+                    commandObject.guardProperties = guardProperties;
+                    return self;
+                }
+            };
+        }
+        
+        return {
             toCommand(command, ...commandProps) {
-                self[addCommand](eventName, command, commandProps, false);
-                return self;
+                let commandObject = self[addCommand](eventName, command, commandProps, false);
+                return guardReturn(commandObject);
             },
             once(command, ...commandProps){
-                self[addCommand](eventName, command, commandProps, true);
-                return self;
+                let commandObject = self[addCommand](eventName, command, commandProps, true);
+                return guardReturn(commandObject);
             }
         };
-        if(command){
-            return r.toCommand(command);
-        }else {
-            return r;
-        }
     }
 
     unmapEvent(eventName, command) {

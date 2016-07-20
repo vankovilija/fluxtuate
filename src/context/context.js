@@ -1,13 +1,14 @@
 import EventDispatcher from "../event-dispatcher"
 import chainTwoFunction from "../utils/chainFunctions"
 import ContextModelWrapper from "../model/model-wrapper"
+import ModelWrapper from "../model/model-wrapper"
 import MediatorMap from "../mediator/mediator-map"
 import MediatorModelWrapper from "../mediator/mediator-model-wrapper"
 import Store from "../model/store"
 import CommandMap from "../command/command-map"
 import CommandModelWrapper from "../command/command-model-wrapper"
 import Injector from "../inject/context-injector"
-import {applyContext, applyCommandContext, applyMediatorContext, contextMediatorCallback, store} from "./_internals"
+import {applyContext, applyCommandContext, applyMediatorContext, applyGuardContext, contextMediatorCallback, store} from "./_internals"
 import {isFunction} from "lodash/lang"
 import {autobind} from "core-decorators"
 
@@ -138,6 +139,28 @@ export default class Context {
             }
 
             this[applyContext].apply(this, [instance, modelInjections, this[mediatorInjections], ...injections]);
+        };
+
+        this[applyGuardContext] = (instance, ...injections) => {
+            let modelInjections = {};
+
+            for(let key in this[models]) {
+                modelInjections[key] = new ModelWrapper(this[models][key].modelInstance, this);
+            }
+
+            let removeInjections = ()=>{
+                for(let key in modelInjections) {
+                    modelInjections[key].destroy();
+                }
+            };
+
+            if(instance.destroy) {
+                instance.destroy = chainTwoFunction(instance.destroy, removeInjections);
+            }else{
+                instance.destroy = removeInjections;
+            }
+
+            this[applyContext].apply(this, [instance, modelInjections, this[mediatorInjections], this[commandInjections], ...injections]);
         };
 
         this[applyCommandContext] = (instance, ...injections) => {

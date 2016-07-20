@@ -2,6 +2,7 @@
 export const applyContext = Symbol("fluxtuateContext_applyContext");
 export const applyCommandContext = Symbol("fluxtuateContext_applyContext");
 export const applyMediatorContext = Symbol("fluxtuateContext_applyContext");
+export const applyGuardContext = Symbol("fluxtuateContext_applyGuardContext");
 export const store = Symbol("fluxtuateContext_store");
 
 //callbacks
