@@ -130,7 +130,9 @@ export default class CommandMap extends EventDispatcher{
             });
 
             if(commandCount === 0) {
-                this.dispatch("complete", {event: eventName, payload: payload});
+                setTimeout(()=>{
+                    this.dispatch("complete", {event: eventName, payload: payload});
+                }, 0);
             }
         };
 
