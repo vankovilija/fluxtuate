@@ -9,6 +9,7 @@ import CommandModelWrapper from "./command-model-wrapper"
 import Model from "../model"
 import ModelWrapper from "../model/model-wrapper"
 import {model} from "../model/_internals"
+import Promise from "bluebird"
 
 const eventMap = Symbol("fluxtuateCommandMap_eventMap");
 const addCommand = Symbol("fluxtuateCommandMap_addCommand");
@@ -81,6 +82,33 @@ export default class CommandMap extends EventDispatcher{
             }
 
             let executeInEvent = (eventName, payload, commandObject)=>{
+                if(commandObject.hooks){
+                    commandObject.hooks.forEach((hookObject)=>{
+                        let hook;
+                        if(hookObject.hookProperties) {
+                            let convertedProperties = hookObject.hookProperties.map((prop)=>{
+                                if(prop instanceof ModelWrapper){
+                                    prop = prop[model];
+                                }
+
+                                if(prop instanceof Model){
+                                    return new ModelWrapper(prop, context);
+                                }
+
+                                return prop;
+                            });
+                            hook = new (Function.prototype.bind.apply(hookObject.hook, [this, ...convertedProperties]));
+                        }else{
+                            hook = new hookObject.hook();
+                        }
+                        context[applyGuardContext](hook, {payload: payload});
+                        if(!isFunction(hook.hook)){
+                            throw new Error(`Hooks must have a hook function! ${hook}`);
+                        }
+                        hook.dispatch = context.dispatch;
+                        hook.hook();
+                    });
+                }
                 commandCount++;
                 let command = this.executeCommand(eventName, commandObject.command, payload, ...commandObject.commandProperties);
                 if(!command.commandName) {
@@ -95,32 +123,40 @@ export default class CommandMap extends EventDispatcher{
 
             let commandMappings = this[eventMap][eventName].slice();
             commandMappings.forEach((commandObject)=>{
-                if(commandObject.guard){
-                    let guard;
-                    if(commandObject.guardProperties) {
-                        let convertedProperties = commandObject.guardProperties.map((prop)=>{
-                            if(prop instanceof ModelWrapper){
-                                prop = prop[model];
-                            }
+                if(commandObject.guards){
+                    let guardPromises = commandObject.guards.map((guardObject)=>{
+                        let guard;
+                        if(guardObject.guardProperties) {
+                            let convertedProperties = guardObject.guardProperties.map((prop)=>{
+                                if(prop instanceof ModelWrapper){
+                                    prop = prop[model];
+                                }
 
-                            if(prop instanceof Model){
-                                return new ModelWrapper(prop, context);
-                            }
-                            
-                            return prop;
+                                if(prop instanceof Model){
+                                    return new ModelWrapper(prop, context);
+                                }
+
+                                return prop;
+                            });
+                            guard = new (Function.prototype.bind.apply(guardObject.guard, [this, ...convertedProperties]));
+                        }else{
+                            guard = new guardObject.guard();
+                        }
+                        context[applyGuardContext](guard, {payload: payload});
+                        if(!isFunction(guard[approveGuard])){
+                            throw new Error(`Guards must have be of type Guard! ${guard}`);
+                        }
+                        return guard[approveGuard]().then((isApproved)=> {
+                            if(isFunction(guard.destroy))
+                                guard.destroy();
+
+                            return isApproved;
                         });
-                        guard = new (Function.prototype.bind.apply(commandObject.guard, [this, ...convertedProperties]));
-                    }else{
-                        guard = new commandObject.guard();
-                    }
-                    context[applyGuardContext](guard, {payload: payload});
-                    if(!isFunction(guard[approveGuard])){
-                        throw new Error(`Guards must have a approve function! ${guard}`);
-                    }
-                    guard[approveGuard]().then((isApproved)=> {
-                        if(isFunction(guard.destroy))
-                            guard.destroy();
-                        if (!isApproved) return;
+                    });
+                    Promise.all(guardPromises).then((results)=>{
+                        for(let i = 0; i < results.length; i++){
+                            if (!results[i]) return;
+                        }
 
                         executeInEvent(eventName, payload, commandObject);
                     });
@@ -195,9 +231,22 @@ export default class CommandMap extends EventDispatcher{
         function guardReturn(commandObject){
             return {
                 withGuard(guardClass, ...guardProperties){
-                    commandObject.guard = guardClass;
-                    commandObject.guardProperties = guardProperties;
-                    return self;
+                    if(!commandObject.guards) commandObject.guards = [];
+                    commandObject.guards.push({
+                        guard: guardClass,
+                        guardProperties: guardProperties
+                    });
+
+                    return guardReturn(commandObject);
+                },
+                withHook(hookClass, ...hookProperties){
+                    if(!commandObject.hooks) commandObject.hooks = [];
+                    commandObject.hooks.push({
+                        hook: hookClass,
+                        hookProperties
+                    });
+
+                    return guardReturn(commandObject);
                 }
             };
         }

@@ -45,7 +45,8 @@ export default class MediatorController {
             };
             
             mediatorClasses.forEach((mediator)=>{
-                if(mediator.guard){
+                if(mediator.guards){
+                    
                     let guard;
                     if(mediator.guardProperties) {
                         let convertedProperties = mediator.guardProperties.map((prop)=>{
