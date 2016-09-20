@@ -14,7 +14,7 @@ function processProperty(iKey, target, key, descriptor) {
     return descriptor;
 }
 
-export function inject(iKey, ...args) {
+export default function inject(iKey, ...args) {
     if(args.length === 0) {
         return processProperty.bind(this, iKey);
     }else if(args.length === 2){

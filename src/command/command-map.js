@@ -1,17 +1,27 @@
-import {isFunction} from "lodash/lang"
+import EventDispatcher from "../event-dispatcher"
+import {isFunction, isString} from "lodash/lang"
 import {findIndex} from "lodash/array"
-import {applyCommandContext} from "../context/_internals"
+import {applyCommandContext, applyGuardContext} from "../context/_internals"
 import Command from "./command"
-import {destroy, pause, resume} from "./_internals"
+import {destroy, pause, resume, event as eventKey, eventPayload as eventPayloadKey, command as CommandKey} from "./_internals"
+import {approveGuard} from "../guard/_internals"
+import CommandModelWrapper from "./command-model-wrapper"
+import Model from "../model"
+import ModelWrapper from "../model/model-wrapper"
+import {model} from "../model/_internals"
+import Promise from "bluebird"
 
 const eventMap = Symbol("fluxtuateCommandMap_eventMap");
 const addCommand = Symbol("fluxtuateCommandMap_addCommand");
 const executeCommandFromEvent = Symbol("fluxtuateCommandMap_executeCommandFromEvent");
 const eventDispatcher = Symbol("fluxtuateCommandMap_eventDispatcher");
 const isPaused = Symbol("fluxtuateCommandMap_isPaused");
+const commandsContext = Symbol("fluxtuateCommandMap_commandsContext");
 
-export default class CommandMap {
+export default class CommandMap extends EventDispatcher{
     constructor(ed, context) {
+        super();
+        this[commandsContext] = context;
         this[eventMap] = {};
         this[isPaused] = false;
 
@@ -27,7 +37,7 @@ export default class CommandMap {
             this[eventMap] = {};
         };
 
-        this[addCommand] = (eventName, command, oneShot)=>{
+        this[addCommand] = (eventName, command, commandProperties, oneShot)=>{
             if((command === Command) || !(command.prototype instanceof Command))
                 throw new Error("Commands must extend the Command class!");
 
@@ -36,50 +46,221 @@ export default class CommandMap {
             }
 
             if(!this[eventMap][eventName]) this[eventMap][eventName] = [];
-            this[eventMap][eventName].push({
+
+            let commandName = eventName + " (" + this[eventMap][eventName].length + ")";
+
+            let commandObject = {
                 command: command,
+                commandName: commandName,
+                commandProperties: commandProperties,
                 oneShot: oneShot,
                 listener: this[eventDispatcher].addListener(eventName, this[executeCommandFromEvent])
-            });
+            };
+
+            this[eventMap][eventName].push(commandObject);
+            return commandObject;
 
         };
 
         this[executeCommandFromEvent] = (eventName, payload) => {
             if(this[isPaused]) return;
 
-            setTimeout(()=>{
-                let cmds = this[eventMap][eventName].slice();
-                cmds.forEach((commandObject)=>{
-                    let command = new commandObject.command(eventName, payload);
-                    context[applyCommandContext](command, {payload: payload});
-                    command.execute();
-                    if(commandObject.oneShot){
-                        this.unmapEvent(eventName, commandObject.command);
-                    }
-                });
-            }, 0);
+            let commandCount = 0;
+            let completeCount = 0;
+
+            function completeCommandForEvent(command, eventName, payload, commandObject){
+                if(commandObject.oneShot){
+                    this.unmapEvent(eventName, commandObject.command);
+                }
+                completeCount++;
+                if(isFunction(command.destroy)){
+                    command.destroy();
+                }
+                if(commandCount === completeCount) {
+                    this.dispatch("complete", {event: eventName, payload: payload});
+                }
+            }
+
+            let executeInEvent = (eventName, payload, commandObject)=>{
+                if(commandObject.hooks){
+                    commandObject.hooks.forEach((hookObject)=>{
+                        let hook;
+                        if(hookObject.hookProperties) {
+                            let convertedProperties = hookObject.hookProperties.map((prop)=>{
+                                if(prop instanceof ModelWrapper){
+                                    prop = prop[model];
+                                }
+
+                                if(prop instanceof Model){
+                                    return new ModelWrapper(prop, context);
+                                }
+
+                                return prop;
+                            });
+                            hook = new (Function.prototype.bind.apply(hookObject.hook, [this, ...convertedProperties]));
+                        }else{
+                            hook = new hookObject.hook();
+                        }
+                        context[applyGuardContext](hook, {payload: payload});
+                        if(!isFunction(hook.hook)){
+                            throw new Error(`Hooks must have a hook function! ${hook}`);
+                        }
+                        hook.dispatch = context.dispatch;
+                        hook.hook();
+                    });
+                }
+                commandCount++;
+                let command = this.executeCommand(eventName, commandObject.command, payload, ...commandObject.commandProperties);
+                if(!command.commandName) {
+                    Object.defineProperty(command, "commandName", {
+                        get() {
+                            return context.contextName + "->" + commandObject.commandName;
+                        }
+                    });
+                }
+                command.onComplete(completeCommandForEvent.bind(this, command, eventName, payload, commandObject));
+            };
+
+            let commandMappings = this[eventMap][eventName].slice();
+            commandMappings.forEach((commandObject)=>{
+                if(commandObject.guards){
+                    let guardPromises = commandObject.guards.map((guardObject)=>{
+                        let guard;
+                        if(guardObject.guardProperties) {
+                            let convertedProperties = guardObject.guardProperties.map((prop)=>{
+                                if(prop instanceof ModelWrapper){
+                                    prop = prop[model];
+                                }
+
+                                if(prop instanceof Model){
+                                    return new ModelWrapper(prop, context);
+                                }
+
+                                return prop;
+                            });
+                            guard = new (Function.prototype.bind.apply(guardObject.guard, [this, ...convertedProperties]));
+                        }else{
+                            guard = new guardObject.guard();
+                        }
+                        context[applyGuardContext](guard, {payload: payload});
+                        if(!isFunction(guard[approveGuard])){
+                            throw new Error(`Guards must have be of type Guard! ${guard}`);
+                        }
+                        return guard[approveGuard]().then((isApproved)=> {
+                            if(isFunction(guard.destroy))
+                                guard.destroy();
+
+                            return isApproved;
+                        });
+                    });
+                    Promise.all(guardPromises).then((results)=>{
+                        for(let i = 0; i < results.length; i++){
+                            if (!results[i]) return;
+                        }
+
+                        executeInEvent(eventName, payload, commandObject);
+                    });
+                }else{
+                    executeInEvent(eventName, payload, commandObject);
+                }
+            });
+
+            if(commandCount === 0) {
+                setTimeout(()=>{
+                    this.dispatch("complete", {event: eventName, payload: payload});
+                }, 0);
+            }
         };
 
         this[eventDispatcher] = ed;
     }
 
-    mapEvent(eventName, command){
+    executeCommand(commandConstructor, payload, ...commandProperties){
+        let command;
+        let eventName = "DirectCommandExecution";
+        if(isString(commandConstructor)){
+            eventName = commandConstructor;
+            commandConstructor = payload;
+            payload = commandProperties[0];
+            commandProperties = commandProperties.slice(1);
+        }
+        if(commandProperties){
+            let injectedModels = [];
+            let convertedProperties = commandProperties.map((prop)=>{
+                if(prop instanceof ModelWrapper){
+                    prop = prop[model];
+                }
+
+                if(prop instanceof Model){
+                    let modelWrapper = new CommandModelWrapper(prop, this[commandsContext]);
+                    injectedModels.push(modelWrapper);
+                    return modelWrapper;
+                }
+
+                return prop;
+            });
+            command = new (Function.prototype.bind.apply(commandConstructor, [this, ...convertedProperties]));
+            injectedModels.forEach((modelWrapper)=>{
+                modelWrapper[CommandKey] = command;
+            });
+        }else{
+            command = new commandConstructor();
+        }
+        command[eventKey] = eventName;
+        command[eventPayloadKey] = payload;
+        this[commandsContext][applyCommandContext](command, {payload: payload});
+        setTimeout(()=>{
+            command.execute();
+        }, 0);
+
+        return command;
+    }
+
+    onComplete(callback){
+        if(!callback) return;
+
+        let listener = this.addListener("complete", (ev, payload)=>{
+            callback(payload.event, payload.payload);
+            listener.remove();
+        });
+    }
+
+    mapEvent(eventName){
         let self = this;
-        let r = {
-            toCommand(command) {
-                self[addCommand](eventName, command, false);
-                return self;
+        
+        function guardReturn(commandObject){
+            return {
+                withGuard(guardClass, ...guardProperties){
+                    if(!commandObject.guards) commandObject.guards = [];
+                    commandObject.guards.push({
+                        guard: guardClass,
+                        guardProperties: guardProperties
+                    });
+
+                    return guardReturn(commandObject);
+                },
+                withHook(hookClass, ...hookProperties){
+                    if(!commandObject.hooks) commandObject.hooks = [];
+                    commandObject.hooks.push({
+                        hook: hookClass,
+                        hookProperties
+                    });
+
+                    return guardReturn(commandObject);
+                }
+            };
+        }
+        
+        return {
+            toCommand(command, ...commandProps) {
+                let commandObject = self[addCommand](eventName, command, commandProps, false);
+                return guardReturn(commandObject);
             },
-            once(command){
-                self[addCommand](eventName, command, true);
-                return self;
+            once(command, ...commandProps){
+                let commandObject = self[addCommand](eventName, command, commandProps, true);
+                return guardReturn(commandObject);
             }
         };
-        if(command){
-            return r.toCommand(command);
-        }else {
-            return r;
-        }
     }
 
     unmapEvent(eventName, command) {
@@ -92,5 +273,9 @@ export default class CommandMap {
 
         this[eventMap][eventName][index].listener.remove();
         this[eventMap][eventName].splice(index, 1);
+    }
+
+    hasEvent(eventName) {
+        return Boolean(this[eventMap][eventName] && this[eventMap][eventName].length > 0);
     }
 }

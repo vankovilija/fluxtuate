@@ -1,18 +1,22 @@
 import EventDispatcher from "../event-dispatcher"
 import chainTwoFunction from "../utils/chainFunctions"
+import ContextModelWrapper from "../model/model-wrapper"
+import ModelWrapper from "../model/model-wrapper"
 import MediatorMap from "../mediator/mediator-map"
 import MediatorModelWrapper from "../mediator/mediator-model-wrapper"
 import Store from "../model/store"
 import CommandMap from "../command/command-map"
 import CommandModelWrapper from "../command/command-model-wrapper"
-import Injector from "../inject/injector"
-import {applyContext, applyCommandContext, applyMediatorContext, contextMediatorCallback, store} from "./_internals"
+import Injector from "../inject/context-injector"
+import {applyContext, applyCommandContext, applyMediatorContext, applyGuardContext, contextMediatorCallback, store} from "./_internals"
 import {isFunction} from "lodash/lang"
+import {autobind} from "core-decorators"
 
 import {getInjectValue, globalValues, defaultValues, isPropertyInjection} from "../inject/_internals"
 import {destroy as commandDestroy, pause as commandPause, resume as commandResume} from "../command/_internals"
 import {destroy as mediatorDestroy, pause as mediatorPause, resume as mediatorResume} from "../mediator/_internals"
 import {destroy as eventDestroy, pause as eventPause, resume as eventResume} from "../event-dispatcher/_internals"
+import GUID from "../utils/guid"
 
 const destroyed = Symbol("fluxtuateContext_destroyed");
 const eventDispatcher = Symbol("fluxtuateContext_eventDispatcher");
@@ -39,12 +43,17 @@ const applyConfiguration = Symbol("fluxtuateContext_applyConfiguration");
 const injectAsDefault = Symbol("fluxtuateContext_injectAsDefault");
 const removeAsDefault = Symbol("fluxtuateContext_removeAsDefault");
 const checkDestroyed = Symbol("fluxtuateContext_checkDestroyed");
+const commandInjections = Symbol("fluxtuateContext_commandInjections");
+const mediatorInjections = Symbol("fluxtuateContext_mediatorInjections");
+const contextName = Symbol("fluxtuateContext_contextName");
 
 const models = Symbol("fluxtuateContext_models");
 
+@autobind
 export default class Context {
     constructor() {
         this[destroyed] = false;
+        this[contextName] = "";
 
         this[models] = {};
         this[storeModels] = [];
@@ -52,17 +61,41 @@ export default class Context {
         this[plugins] = [];
         this[globalPlugins] = [];
         this[children] = [];
+        this[commandInjections] = {};
+        this[mediatorInjections] = {};
         this[parent] = undefined;
 
         this[mediatorMap] = new MediatorMap(this);
         this[commandMap] = new CommandMap(this[eventDispatcher], this);
         this[injector] = new Injector(this, this[eventDispatcher], this[mediatorMap], this[commandMap]);
 
+        Object.defineProperty(this, "commandMap", {
+            get() {
+                return this[commandMap];
+            }
+        });
+
+        Object.defineProperty(this, "mediatorMap", {
+            get() {
+                return this[commandMap];
+            }
+        });
+
+        Object.defineProperty(this, "contextName", {
+            get() {
+                return this[contextName];
+            }
+        });
+
         this[injectAsDefault] = (key, value, description, isGlobal = false, type = "value") => {
             if(type === "value") {
                 this[injector].mapKey(key).toValue(value);
             }else if(type === "property") {
                 this[injector].mapKey(key).toProperty(value.object, value.property);
+            }else if(type === "command") {
+                this[commandInjections][key] = value;
+            }else if(type === "mediator") {
+                this[mediatorInjections][key] = value;
             }
             this[injector][defaultValues][key] = description;
 
@@ -105,7 +138,29 @@ export default class Context {
                 instance.destroy = removeInjections;
             }
 
-            this[applyContext].apply(this, [instance, modelInjections, ...injections]);
+            this[applyContext].apply(this, [instance, modelInjections, this[mediatorInjections], ...injections]);
+        };
+
+        this[applyGuardContext] = (instance, ...injections) => {
+            let modelInjections = {};
+
+            for(let key in this[models]) {
+                modelInjections[key] = new ModelWrapper(this[models][key].modelInstance, this);
+            }
+
+            let removeInjections = ()=>{
+                for(let key in modelInjections) {
+                    modelInjections[key].destroy();
+                }
+            };
+
+            if(instance.destroy) {
+                instance.destroy = chainTwoFunction(instance.destroy, removeInjections);
+            }else{
+                instance.destroy = removeInjections;
+            }
+
+            this[applyContext].apply(this, [instance, modelInjections, this[mediatorInjections], this[commandInjections], ...injections]);
         };
 
         this[applyCommandContext] = (instance, ...injections) => {
@@ -123,7 +178,7 @@ export default class Context {
                 });
             }
             
-            this[applyContext].apply(this, [instance, modelInjections, ...injections]);
+            this[applyContext].apply(this, [instance, modelInjections, this[commandInjections], ...injections]);
         };
 
         this[checkDestroyed] = () => {
@@ -277,33 +332,46 @@ export default class Context {
             });
         };
 
-        this[storeFunction] = (modelClass, storeName, injectionKey, description) => {
-            if(this[storeModels].indexOf(storeName) !== -1) {
-                throw new Error(`Stores can only be registered once per context, you are trying to register the store ${storeName} twice!`)
-            }
-            if(!description) {
-                description = `A key to get the ${storeName}`
-            }
+        let self = this;
+        this[storeFunction] = {
+            addModel(modelClass, storeName, injectionKey, description) {
+                if(self[storeModels].indexOf(storeName) !== -1) {
+                    throw new Error(`Stores can only be registered once per context, you are trying to register the store ${storeName} twice!`)
+                }
+                if(!description) {
+                    description = `A key to get the ${storeName}`
+                }
 
-            if(!injectionKey) {
-                injectionKey = storeName;
+                if(!injectionKey) {
+                    injectionKey = storeName;
+                }
+
+                let model = self[store].mapModel(modelClass, self).toKey(storeName);
+                self[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
+                self[models][injectionKey] = Object.assign({}, model, {wrapper: new ContextModelWrapper(model.modelInstance)});
+
+                self[storeModels].push(storeName);
+            },
+            getModel(modelName) {
+                if(!self[models][modelName]){
+                    return;
+                }
+
+                return self[models][modelName].wrapper;
             }
-
-            let model = this[store].mapModel(modelClass).toKey(storeName);
-            this[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
-            this[models][injectionKey] = model;
-
-            this[storeModels].push(storeName);
         };
 
         this[applyConfiguration] = (Config)=>{
             let config = new Config();
-            this[applyContext](config, {store: this[storeFunction]}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined);
+            this[applyContext](config, this[mediatorInjections], this[commandInjections], {store: this[storeFunction]}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined);
             config.configure();
             this[configurations].push(config);
         };
     }
 
+    dispatch(eventName, eventPayload) {
+        this[eventDispatcher].dispatch(eventName, eventPayload);
+    }
 
     addChild(context) {
         this[checkDestroyed]();
@@ -370,6 +438,10 @@ export default class Context {
             childContext: context
         });
     }
+
+    setName(name) {
+        this[contextName] = name;
+    }
     
     config(configurationClass) {
         this[checkDestroyed]();
@@ -410,7 +482,7 @@ export default class Context {
             throw new Error("Plugins must contain a initialize method!");
         }
         let p = new pluginClass();
-        this[applyContext](p, {options: options}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined, {contextDispatcher: this[contextDispatcher]});
+        this[applyContext](p, this[mediatorInjections], this[commandInjections], {options: options}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined, {contextDispatcher: this[contextDispatcher]});
         this[plugins].push(p);
         p.initialize(this[injectAsDefault], this[removeAsDefault]);
         
@@ -474,6 +546,10 @@ export default class Context {
         let configs = this[configuration];
         configs.forEach(this[applyConfiguration]);
 
+        if(!this[contextName]){
+            this[contextName] = GUID.generateGUID();
+        }
+
         this[contextDispatcher].dispatch("started");
     }
     
@@ -527,6 +603,10 @@ export default class Context {
 
         while(this[storeModels].length > 0) {
             this[store].unmapModelKey(this[storeModels].pop());
+        }
+
+        for(let key in this[models]){
+            this[models][key].wrapper.destroy();
         }
 
         this[contextDispatcher].dispatch("destroying");

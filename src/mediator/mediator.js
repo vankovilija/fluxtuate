@@ -1,4 +1,4 @@
-import {destroy} from "./_internals"
+import {destroy, boundModels, autoDispatches, dispatchFunction} from "./_internals"
 import {isFunction} from "lodash/lang"
 const destroyed = Symbol("fluxtuateMediator_destroyed");
 const updateMediatorPropsFromModel = Symbol("fluxtuateMediator_updateMediatorPropsFromModel");
@@ -29,6 +29,35 @@ export default class Mediator {
         };
 
         setTimeout(()=>{
+            if(this[destroyed]) return;
+            
+            if(this[boundModels]) {
+                this[boundModels].forEach((boundModel)=>{
+                    if(this[boundModel.key]){
+                        this.linkModel(this[boundModel.key], boundModel.bindFunction.bind(this));
+                    }
+                });
+            }
+            if(this[autoDispatches]) {
+                this[autoDispatches].forEach((autoDispatch)=>{
+                    let autoDispatchFunction;
+                    if(isFunction(this[autoDispatch.key])){
+                        autoDispatchFunction = this[autoDispatch.key];
+                    }else{
+                        autoDispatchFunction = (descriptorPayload)=>descriptorPayload;
+                    }
+
+                    Object.defineProperty(this, autoDispatch.key, {
+                        value: (...args) => {
+                            let returnValue = autoDispatchFunction.apply(this, args);
+                            this[dispatchFunction](autoDispatch.dispatchKey, returnValue);
+                            return returnValue;
+                        },
+                        configurable: true,
+                        writable: false
+                    });
+                });
+            }
             if(isFunction(this.destroy)){
                 let dest = this.destroy;
                 this.destroy = () => {
