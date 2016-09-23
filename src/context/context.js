@@ -525,15 +525,14 @@ export default class Context {
     start() {
         this[checkDestroyed]();
 
-        if(this[configured]) {
-            this[restart]();
+        !this[configured] && this[contextDispatcher].dispatch("starting");
+
+        if(this[parent])
+            this[parent].start();
+
+        if(this[configured]){
             return;
         }
-
-        this[contextDispatcher].dispatch("starting");
-
-        if(this[parent] && !this[parent][configured])
-            this[parent].start();
 
         if(!this[parent]){
             this[store] = new Store();
@@ -551,6 +550,19 @@ export default class Context {
         }
 
         this[contextDispatcher].dispatch("started");
+    }
+
+    hasParent(parent) {
+        let currentParent = this.parent;
+
+        while(currentParent) {
+            if(currentParent === parent){
+                return true;
+            }
+            currentParent = currentParent.parent;
+        }
+
+        return false;
     }
     
     stop() {
@@ -602,7 +614,7 @@ export default class Context {
         }
 
         while(this[storeModels].length > 0) {
-            this[store].unmapModelKey(this[storeModels].pop());
+            this[store].unmapModelKey(this[storeModels].pop(), this);
         }
 
         for(let key in this[models]){
