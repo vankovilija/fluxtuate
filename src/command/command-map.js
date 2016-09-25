@@ -45,19 +45,21 @@ export default class CommandMap extends EventDispatcher{
                 throw new Error("Commands must implement a execute method!");
             }
 
-            if(!this[eventMap][eventName]) this[eventMap][eventName] = [];
+            if(!this[eventMap][eventName]) this[eventMap][eventName] = {
+                listener: this[eventDispatcher].addListener(eventName, this[executeCommandFromEvent]),
+                commands: []
+            };
 
-            let commandName = eventName + " (" + this[eventMap][eventName].length + ")";
+            let commandName = eventName + " (" + this[eventMap][eventName].commands.length + ")";
 
             let commandObject = {
                 command: command,
                 commandName: commandName,
                 commandProperties: commandProperties,
-                oneShot: oneShot,
-                listener: this[eventDispatcher].addListener(eventName, this[executeCommandFromEvent])
+                oneShot: oneShot
             };
 
-            this[eventMap][eventName].push(commandObject);
+            this[eventMap][eventName].commands.push(commandObject);
             return commandObject;
 
         };
@@ -121,7 +123,7 @@ export default class CommandMap extends EventDispatcher{
                 command.onComplete(completeCommandForEvent.bind(this, command, eventName, payload, commandObject));
             };
 
-            let commandMappings = this[eventMap][eventName].slice();
+            let commandMappings = this[eventMap][eventName].commands.slice();
             commandMappings.forEach((commandObject)=>{
                 if(commandObject.guards){
                     let guardPromises = commandObject.guards.map((guardObject)=>{
@@ -150,7 +152,7 @@ export default class CommandMap extends EventDispatcher{
                             if(isFunction(guard.destroy))
                                 guard.destroy();
 
-                            return isApproved;
+                            return guardObject.hasGuard && isApproved || !guardObject.hasGuard && !isApproved;
                         });
                     });
                     Promise.all(guardPromises).then((results)=>{
@@ -184,7 +186,7 @@ export default class CommandMap extends EventDispatcher{
             payload = commandProperties[0];
             commandProperties = commandProperties.slice(1);
         }
-        if(commandProperties){
+        if(commandProperties && commandProperties.length > 0){
             let injectedModels = [];
             let convertedProperties = commandProperties.map((prop)=>{
                 if(prop instanceof ModelWrapper){
@@ -233,6 +235,17 @@ export default class CommandMap extends EventDispatcher{
                 withGuard(guardClass, ...guardProperties){
                     if(!commandObject.guards) commandObject.guards = [];
                     commandObject.guards.push({
+                        hasGuard: true,
+                        guard: guardClass,
+                        guardProperties: guardProperties
+                    });
+
+                    return guardReturn(commandObject);
+                },
+                withoutGuard(guardClass, ...guardProperties){
+                    if(!commandObject.guards) commandObject.guards = [];
+                    commandObject.guards.push({
+                        hasGuard: false,
                         guard: guardClass,
                         guardProperties: guardProperties
                     });
@@ -266,16 +279,19 @@ export default class CommandMap extends EventDispatcher{
     unmapEvent(eventName, command) {
         if(!this[eventMap][eventName]) return;
 
-        let index = findIndex(this[eventMap][eventName], {command: command});
+        let index = findIndex(this[eventMap][eventName].commands, {command: command});
 
 
         if(index === -1) return;
 
-        this[eventMap][eventName][index].listener.remove();
-        this[eventMap][eventName].splice(index, 1);
+        this[eventMap][eventName].commands.splice(index, 1);
+        if(this[eventMap][eventName].commands.length === 0) {
+            this[eventMap][eventName].listener.remove();
+            this[eventMap][eventName] = undefined;
+        }
     }
 
     hasEvent(eventName) {
-        return Boolean(this[eventMap][eventName] && this[eventMap][eventName].length > 0);
+        return Boolean(this[eventMap][eventName] && this[eventMap][eventName].commands.length > 0);
     }
 }
