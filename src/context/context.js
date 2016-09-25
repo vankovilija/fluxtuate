@@ -278,13 +278,13 @@ export default class Context {
 
         this[addParent] = (parentContext) => {
             if (parentContext) {
+                this[parent] = parentContext;
+
                 parentContext[eventDispatcher].addChild(this[eventDispatcher]);
 
                 let values = parentContext[injector][globalValues].slice();
                 let pgns = parentContext[globalPlugins].slice();
                 this[addParentValues](values, pgns, parentContext[injector][getInjectValue], parentContext[injector][defaultValues]);
-
-                this[parent] = parentContext;
             }
         };
 
