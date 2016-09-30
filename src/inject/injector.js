@@ -39,6 +39,12 @@ export default class Injector {
         }
     }
 
+    hasInjection(iKey) {
+        return this[injectionValueMap][iKey] !== undefined ||
+            this[injectionPropertyMap][iKey] !== undefined ||
+            this[injectionClassMap][iKey] !== undefined;
+    }
+
     mapKey(key) {
         if(reservedWords.indexOf(key) !== -1) throw new Error(`"${key}" is a reserved word, use a different mapping for this value!`);
         if(Object.keys(this[defaultValues]).indexOf(key) !== -1) throw new Error(`"${key}" is a reserved value in the injector! ${this[defaultValues][key]}.`);

@@ -64,8 +64,9 @@ export default class CommandMap extends EventDispatcher{
 
         };
 
-        this[executeCommandFromEvent] = (eventName, payload) => {
+        this[executeCommandFromEvent] = (event, payload) => {
             if(this[isPaused]) return;
+            let eventName = event.eventName;
 
             let commandCount = 0;
             let completeCount = 0;
@@ -125,6 +126,9 @@ export default class CommandMap extends EventDispatcher{
 
             let commandMappings = this[eventMap][eventName].commands.slice();
             commandMappings.forEach((commandObject)=>{
+                if(commandObject.stopPropagation) {
+                    event.stopPropagation();
+                }
                 if(commandObject.guards){
                     let guardPromises = commandObject.guards.map((guardObject)=>{
                         let guard;
@@ -232,7 +236,7 @@ export default class CommandMap extends EventDispatcher{
         
         function guardReturn(commandObject){
             return {
-                withGuard(guardClass, ...guardProperties){
+                withGuard(guardClass, ...guardProperties) {
                     if(!commandObject.guards) commandObject.guards = [];
                     commandObject.guards.push({
                         hasGuard: true,
@@ -242,7 +246,7 @@ export default class CommandMap extends EventDispatcher{
 
                     return guardReturn(commandObject);
                 },
-                withoutGuard(guardClass, ...guardProperties){
+                withoutGuard(guardClass, ...guardProperties) {
                     if(!commandObject.guards) commandObject.guards = [];
                     commandObject.guards.push({
                         hasGuard: false,
@@ -252,12 +256,17 @@ export default class CommandMap extends EventDispatcher{
 
                     return guardReturn(commandObject);
                 },
-                withHook(hookClass, ...hookProperties){
+                withHook(hookClass, ...hookProperties) {
                     if(!commandObject.hooks) commandObject.hooks = [];
                     commandObject.hooks.push({
                         hook: hookClass,
                         hookProperties
                     });
+
+                    return guardReturn(commandObject);
+                },
+                stopPropagation() {
+                    commandObject.stopPropagation = true;
 
                     return guardReturn(commandObject);
                 }

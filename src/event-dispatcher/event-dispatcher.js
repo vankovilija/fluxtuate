@@ -40,39 +40,50 @@ export default class EventDispatcher {
             this[eventMap] = {};
         };
 
-        this[propagateToParent] = (eventName, payload) => {
+        this[propagateToParent] = (event, payload, eventMetaData) => {
             setTimeout(()=>{
+                if(!eventMetaData.shouldPropagate || !eventMetaData.shouldImmediatelyPropagate) {
+                    return;
+                }
                 if(this[parent]){
-                    this[parent][sendEvent](eventName, payload);
-                    this[parent][propagateToParent](eventName, payload);
+                    this[parent][sendEvent](Object.assign({}, event, {currentTarget: this[parent]}), payload, eventMetaData);
+                    this[parent][propagateToParent](event, payload, eventMetaData);
                 }
             },0);
         };
 
-        this[propagateToChildren] = (eventName, payload) => {
+        this[propagateToChildren] = (event, payload, eventMetaData) => {
             setTimeout(()=>{
                 if(this[children] && this[children].length > 0){
-                    this[children].forEach(c=>{
-                        c[sendEvent](eventName, payload);
-                        c[propagateToChildren](eventName, payload);
-                    });
+                    for(let i = 0; i < this[children].length; i++){
+                        if(!eventMetaData.shouldPropagate || !eventMetaData.shouldImmediatelyPropagate) {
+                            break;
+                        }
+                        let c = this[children][i];
+                        c[sendEvent](Object.assign({}, event, {currentTarget: c}), payload, eventMetaData);
+                        c[propagateToChildren](event, payload, eventMetaData);
+                    }
                 }
             },0);
         };
 
-        this[sendEvent] = (eventName, payload) => {
-            let eventList = this[eventMap][eventName];
+        this[sendEvent] = (event, payload, eventMetaData) => {
+            let eventList = this[eventMap][event.eventName];
             if(!eventList) return;
             eventList = eventList.slice();
 
             eventList = eventList.sort(sortEvents);
 
-            eventList.forEach((eventObject)=>{
-                invokeFunction(eventObject.callbackFunction, [eventName, payload]);
+            for(let i = 0; i < eventList.length; i++){
+                if(!eventMetaData.shouldImmediatelyPropagate) {
+                    break;
+                }
+                let eventObject = eventList[i];
+                invokeFunction(eventObject.callbackFunction, [event, payload]);
                 if(eventObject.oneShot){
                     eventObject.remove();
                 }
-            });
+            }
         }
     }
     
@@ -95,10 +106,27 @@ export default class EventDispatcher {
     dispatch(eventName, payload) {
         if(this[isPaused]) return;
 
-        this[propagateToParent](eventName, payload);
-        this[propagateToChildren](eventName, payload);
+        let eventMetaData = {
+            shouldPropagate: true,
+            shouldImmediatelyPropagate: true
+        };
 
-        this[sendEvent](eventName, payload);
+        let event = {
+            eventName,
+            stopPropagation: function() {
+                eventMetaData.shouldPropagate = false;
+            },
+            stopImmediatePropagation: function() {
+                eventMetaData.shouldImmediatelyPropagate = false;
+            },
+            currentTarget: this,
+            target: this
+        };
+
+        this[propagateToParent](event, payload, eventMetaData);
+        this[propagateToChildren](event, payload, eventMetaData);
+
+        this[sendEvent](event, payload, eventMetaData);
     }
     
     addListener(eventName, callbackFunction, priority = 0, oneShot = false) {

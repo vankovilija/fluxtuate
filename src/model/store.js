@@ -92,10 +92,10 @@ export default class Store extends RetainEventDispatcher{
         if(model.retainCount <= 0) {
             model.retainCount = 0;
             if(model) {
-                if(model.storeWrapper.destroy)
-                    model.storeWrapper.destroy();
                 if(model.modelInstance.destroy)
                     model.modelInstance.destroy();
+                if(model.storeWrapper.destroy)
+                    model.storeWrapper.destroy();
             }
             let modelIndex = this[models][key].indexOf(model);
             this[models][key].splice(modelIndex, 1);
