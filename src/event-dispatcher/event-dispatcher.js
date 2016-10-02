@@ -47,7 +47,8 @@ export default class EventDispatcher {
                 }
                 if(this[parent]){
                     this[parent][sendEvent](Object.assign({}, event, {currentTarget: this[parent]}), payload, eventMetaData);
-                    this[parent][propagateToParent](event, payload, eventMetaData);
+                    if(this[parent])
+                        this[parent][propagateToParent](event, payload, eventMetaData);
                 }
             },0);
         };
