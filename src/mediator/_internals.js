@@ -4,6 +4,7 @@ export const fluxtuateNameProperty = Symbol("fluxtuateInternals__fluxtuateNamePr
 export const fluxtuateView = Symbol("fluxtuateInternals__fluxtuateView");
 export const viewDelegator = Symbol("fluxtuateInternals__viewDelegator");
 export const mediate = Symbol("fluxtuateInternals__mediate");
+export const context = Symbol("fluxtuateInternals__context");
 export const pause = Symbol("fluxtuateInternals__pause");
 export const resume = Symbol("fluxtuateInternals__resume");
 export const destroy = Symbol("fluxtuateInternals__destroy");

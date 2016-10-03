@@ -2,6 +2,7 @@ import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {elementResponsible} from "./_internals"
 import {destroy, eventMap} from "../event-dispatcher/_internals"
 import ModelWrapper from "./model-wrapper"
+import {isString} from "lodash/lang"
 
 const models = Symbol("fluxtuateStore_models");
 const modelsRetainCount = Symbol("fluxtuateStore_modelCount");
@@ -37,30 +38,45 @@ export default class Store extends RetainEventDispatcher{
         });
     }
 
+    getModel(key, context) {
+        if(!isString(key)) throw new Error("You must provide a key to get a model!");
+
+        if(!context) {
+            throw new Error(`Context must be provided to get model ${key}`);
+        }
+
+        let modelsList = this[models][key];
+        if(!modelsList) return;
+
+        let l = modelsList.length;
+
+        for(let i = 0; i < l; i++) {
+            if(modelsList[i].context === context || context.hasParent(modelsList[i].context)) {
+                return modelsList[i];
+            }
+        }
+    }
+
     mapModel(modelClass, context){
         let self = this;
 
         return {
             toKey(key) {
-                if(self[models][key]){
-                    if(self[models][key].modelClass !== modelClass){
+                let model = self.getModel(key, context);
+                if(model){
+                    if(model.modelClass !== modelClass){
                         throw new Error(`You are trying to swap the model key ${key} with a different model value, model keys are global and must be unique in the context-tree!`);
                     }
-                    self[modelsRetainCount][key] ++;
-                    return self[models][key];
+                    model.retainCount ++;
+                    return model;
                 }
                 let mi = new modelClass(key);
-                let model = {modelInstance: mi, storeWrapper: new ModelWrapper(mi), modelClass: modelClass};
+                model = {modelInstance: mi, storeWrapper: new ModelWrapper(mi), modelClass: modelClass, context, retainCount: 1};
                 model.listener = model.modelInstance.onUpdate((payload)=>{
                     self[dispatchUpdate](payload[elementResponsible]);
                 });
-                self[modelsRetainCount][key] = 1;
-                Object.defineProperty(self[models], key, {
-                    get() {
-                        return model;
-                    },
-                    configurable: true
-                });
+                if(!self[models][key]) self[models][key] = [];
+                self[models][key].push(model);
 
                 self[dispatchUpdate](context);
 
@@ -69,52 +85,60 @@ export default class Store extends RetainEventDispatcher{
         }
     }
 
-    unmapModelKey(key) {
-        if(!this[modelsRetainCount][key]) return;
-        this[modelsRetainCount][key]--;
-        if(this[modelsRetainCount][key] <= 0) {
-            this[modelsRetainCount][key] = 0;
-            if(this[models][key]) {
-                if(this[models][key].storeWrapper.destroy)
-                    this[models][key].storeWrapper.destroy();
-                if(this[models][key].modelInstance.destroy)
-                    this[models][key].modelInstance.destroy();
+    unmapModelKey(key, context) {
+        let model = this.getModel(key, context);
+        if(!model) return;
+        model.retainCount--;
+        if(model.retainCount <= 0) {
+            model.retainCount = 0;
+            if(model) {
+                if(model.modelInstance.destroy)
+                    model.modelInstance.destroy();
+                if(model.storeWrapper.destroy)
+                    model.storeWrapper.destroy();
             }
-            delete this[models][key];
+            let modelIndex = this[models][key].indexOf(model);
+            this[models][key].splice(modelIndex, 1);
+            if(this[models][key].length === 0) {
+                delete this[models][key];
+            }
         }
     }
 
     get models() {
         let modelClasses = {};
-        let modelKeys = Object.getOwnPropertyDescriptors(this[models]);
-        for(let key in modelKeys){
-            if(modelKeys.hasOwnProperty(key))
-                modelClasses[key] = this[models][key].modelClass;
+        let modelKeys = Object.keys(this[models]);
+        for(let i = 0; i < modelKeys.length; i ++){
+            let key = modelKeys[i];
+            modelClasses[key] = this[models][key].map((modelObject)=>modelObject.modelClass);
         }
         return modelClasses;
     }
 
     get data() {
         let modelData = {};
-        let modelKeys = Object.getOwnPropertyDescriptors(this[models]);
-        for(let key in modelKeys){
-            if(modelKeys.hasOwnProperty(key))
-                modelData[key] = this[models][key].storeWrapper.modelData;
+        let modelKeys = Object.keys(this[models]);
+        for(let i = 0; i < modelKeys.length; i ++){
+            let key = modelKeys[i];
+            modelData[key] = this[models][key].map((modelObject)=>modelObject.storeWrapper.modelData);
         }
         return modelData;
     }
 
     clearStore(responsibleElement) {
-        let modelKeys = Object.getOwnPropertyDescriptors(this[models]);
-        for(let key in modelKeys) {
-            if(modelKeys.hasOwnProperty(key)) {
-                if (this[models][key].storeWrapper.destroy)
-                    this[models][key].storeWrapper.destroy();
+        let modelKeys = Object.keys(this[models]);
+        for(let i = 0; i < modelKeys.length; i++) {
+            let key = modelKeys[i];
+            let modelsList = this[models][key];
+            for(let j = 0 ; i < modelsList.length; j++) {
+                let model = modelsList[j];
+                if (model.storeWrapper.destroy)
+                    model.storeWrapper.destroy();
 
-                if (this[models][key].modelInstance.destroy)
-                    this[models][key].modelInstance.destroy();
+                if (model.modelInstance.destroy)
+                    model.modelInstance.destroy();
 
-                this[models][key].modelInstance = undefined;
+                model.modelInstance = undefined;
             }
         }
 
@@ -128,7 +152,10 @@ export default class Store extends RetainEventDispatcher{
         for(let key in modelData){
             if(modelData.hasOwnProperty(key)) {
                 if (this[models][key]) {
-                    this[models][key].modelInstance.setValue(modelData[key]);
+                    for(let i = 0; i < modelData[key].length; i++) {
+                        if(this[models][key][i])
+                            this[models][key][i].modelInstance.setValue(modelData[key][i]);
+                    }
                 }
             }
         }
@@ -136,16 +163,19 @@ export default class Store extends RetainEventDispatcher{
     
     setStore(modelClasses, modelData = {}) {
         let eventMaps = {};
-        let modelKeys = Object.getOwnPropertyDescriptors(this[models]);
-        for(let key in modelKeys){
-            if(modelKeys.hasOwnProperty(key)) {
-                if (modelClasses[key])
-                    eventMaps[key] = this[models][key].modelInstance[eventMap];
-                else {
-                    this[models][key].modelInstance.clear();
-                    if (this[modelsRetainCount][key] <= 0) {
-                        this[modelsRetainCount][key] = 1;
-                        this.unmapModelKey(key);
+        let modelKeys = Object.keys(this[models]);
+        for(let i = 0; i < modelKeys.length; i++){
+            let key = modelKeys[i];
+            for(let j = 0; j < this[models][key].length; j++) {
+                let model = this[models][key][j];
+                if (modelClasses[key]) {
+                    if(!eventMaps[key]) eventMaps[key] = [];
+                    eventMaps[key][i] = model.modelInstance[eventMap];
+                } else {
+                    model.modelInstance.clear();
+                    if (model.retainCount <= 0) {
+                        model.retainCount = 1;
+                        this.unmapModelKey(key, model.context);
                     }
                 }
             }
@@ -153,24 +183,18 @@ export default class Store extends RetainEventDispatcher{
         for(let key in modelClasses) {
             if(modelClasses.hasOwnProperty(key)) {
                 if (!this[models][key]) {
-                    let model = {};
-                    Object.defineProperty(this[models], key, {
-                        get() {
-                            return model;
-                        },
-                        configurable: true
-                    });
-                    this[modelsRetainCount][key] = 0;
+                    this[models][key] = [];
                 }
+                for(let i = 0; i < modelClasses[key].length; i ++) {
+                    this[models][key][i].modelClass = modelClasses[key];
+                    this[models][key][i].modelInstance = new modelClasses[key](key);
+                    setTimeout(function(key, i){
+                        this[models][key][i].modelInstance.update(modelData[key] ? (modelData[key][i] || {}) : {})
+                    }.bind(this, key, i), 0);
 
-                this[models][key].modelClass = modelClasses[key];
-                this[models][key].modelInstance = new modelClasses[key](key);
-                setTimeout(()=> {
-                    this[models][key].modelInstance.update(modelData[key] || {})
-                }, 0);
-
-                if (eventMaps[key])
-                    this[models][key].modelInstance[eventMap] = eventMaps[key];
+                    if (eventMaps[key] && eventMaps[key][i])
+                        this[models][key][i].modelInstance[eventMap] = eventMaps[key][i];
+                }
             }
         }
     }

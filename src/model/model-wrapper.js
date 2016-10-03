@@ -38,8 +38,10 @@ export default class ModelWrapper {
             if(this[destroyed]) return;
 
             this[updateTimer] = setTimeout(()=>{
+                this[updateTimer] = undefined;
+                if(this[destroyed]) return;
                 callback({model: this, data: payload.data, name: payload.name});
-            }, 0)
+            }, 0);
         };
 
         this[updateable] = false;

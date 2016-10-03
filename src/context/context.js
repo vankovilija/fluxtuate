@@ -8,7 +8,7 @@ import Store from "../model/store"
 import CommandMap from "../command/command-map"
 import CommandModelWrapper from "../command/command-model-wrapper"
 import Injector from "../inject/context-injector"
-import {applyContext, applyCommandContext, applyMediatorContext, applyGuardContext, contextMediatorCallback, store} from "./_internals"
+import {applyContext, applyCommandContext, applyMediatorContext, applyGuardContext, contextMediatorCallback, store, mediators} from "./_internals"
 import {isFunction} from "lodash/lang"
 import {autobind} from "core-decorators"
 
@@ -49,11 +49,15 @@ const contextName = Symbol("fluxtuateContext_contextName");
 
 const models = Symbol("fluxtuateContext_models");
 
+const globalStore = new Store();
+
 @autobind
 export default class Context {
     constructor() {
+        this[store] = globalStore;
         this[destroyed] = false;
         this[contextName] = "";
+        this[mediators] = [];
 
         this[models] = {};
         this[storeModels] = [];
@@ -202,6 +206,7 @@ export default class Context {
             switch(state){
                 case "created":
                 {
+                    this[mediators].push(mediator);
                     let injections = {};
                     this[contextDispatcher].dispatch("mediator_created", {
                         preventDefault(){
@@ -231,6 +236,10 @@ export default class Context {
                 }
                 case "destroyed":
                 {
+                    let index = this[mediators].indexOf(mediator);
+                    if(index !== -1) {
+                        this[mediators].splice(index, 1);
+                    }
                     this[contextDispatcher].dispatch("mediator_destroyed", {
                         mediator: mediator,
                         view: view
@@ -278,13 +287,13 @@ export default class Context {
 
         this[addParent] = (parentContext) => {
             if (parentContext) {
+                this[parent] = parentContext;
+
                 parentContext[eventDispatcher].addChild(this[eventDispatcher]);
 
                 let values = parentContext[injector][globalValues].slice();
                 let pgns = parentContext[globalPlugins].slice();
                 this[addParentValues](values, pgns, parentContext[injector][getInjectValue], parentContext[injector][defaultValues]);
-
-                this[parent] = parentContext;
             }
         };
 
@@ -525,20 +534,14 @@ export default class Context {
     start() {
         this[checkDestroyed]();
 
-        if(this[configured]) {
-            this[restart]();
-            return;
-        }
+        !this[configured] && this[contextDispatcher].dispatch("starting");
 
-        this[contextDispatcher].dispatch("starting");
-
-        if(this[parent] && !this[parent][configured])
+        if(this[parent])
             this[parent].start();
 
-        if(!this[parent]){
-            this[store] = new Store();
-        }else{
-            this[store] = this[parent][store];
+        if(this[configured]){
+            this[contextDispatcher].dispatch("started");
+            return;
         }
         
         this[configured] = true;
@@ -551,6 +554,23 @@ export default class Context {
         }
 
         this[contextDispatcher].dispatch("started");
+    }
+
+    get isStarted() {
+        return this[configured];
+    }
+
+    hasParent(parent) {
+        let currentParent = this.parent;
+
+        while(currentParent) {
+            if(currentParent === parent){
+                return true;
+            }
+            currentParent = currentParent.parent;
+        }
+
+        return false;
     }
     
     stop() {
@@ -602,7 +622,7 @@ export default class Context {
         }
 
         while(this[storeModels].length > 0) {
-            this[store].unmapModelKey(this[storeModels].pop());
+            this[store].unmapModelKey(this[storeModels].pop(), this);
         }
 
         for(let key in this[models]){

@@ -1,6 +1,6 @@
 import chainFunctions from "../utils/chainFunctions"
 import {isFunction} from "lodash/lang"
-import {destroy, fluxtuateNameProperty, fluxtuateUpdateFunction, mediate, dispatchFunction, mediator as MediatorKey} from "./_internals"
+import {destroy, fluxtuateNameProperty, fluxtuateUpdateFunction, mediate, dispatchFunction, mediator as MediatorKey, context as MediatorContext} from "./_internals"
 import {applyMediatorContext, applyGuardContext} from "../context/_internals"
 import {approveGuard} from "../guard/_internals"
 import Model from "../model"
@@ -136,6 +136,7 @@ export default class MediatorController {
             med[dispatchFunction] = this[context].dispatch;
             med.setProps = chainFunctions(updateMediatorProps.bind(med, this[context][contextMediatorCallback], view), view[view[fluxtuateUpdateFunction]], updatedProps.bind(med, this[context][contextMediatorCallback], view));
             med[props] = Object.assign({},view.props);
+            med[MediatorContext] = this[context];
 
 
             Object.defineProperty(med, "props", {
