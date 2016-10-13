@@ -1,6 +1,6 @@
 import {autobind} from "core-decorators"
 import getOwnPropertyDescriptors from "../utils/getOwnPropertyDescriptors"
-import {getInjectValue, globalValues, defaultValues, injectionKey, isPropertyInjection, injectionValueMap} from "./_internals"
+import {getInjectValue, globalValues, defaultValues, injectionKey, isPropertyInjection, injectionValueMap, applyInjectionSignature, getInjectionSignature} from "./_internals"
 import {isObject} from "lodash/lang"
 
 const reservedWords = ["view", "payload"];
@@ -36,7 +36,15 @@ export default class Injector {
             }
             
             return value;
-        }
+        };
+
+        this[applyInjectionSignature] = (instance, signature) => {
+            instance[hasInjection] = signature;
+        };
+
+        this[getInjectionSignature] = (instance) => {
+            return instance[hasInjection];
+        };
     }
 
     hasInjection(iKey) {
@@ -134,7 +142,6 @@ export default class Injector {
     }
 
     inject (instance, ...injections) {
-        
         let defaultInjection = {};
 
         injections.forEach((injection)=>{
@@ -146,20 +153,31 @@ export default class Injector {
 
             if(!isObject(injection))
                 throw new Error("Injection defaults can only be a object literal!");
-            
+
             defaultInjection = Object.assign(defaultInjection, injection);
         });
 
-        let descriptorsInstance = instance;
-        let descriptors = {};
         let possibleInjections = Object.assign({}, defaultInjection, this[injectionValueMap], this[injectionPropertyMap], this[injectionClassMap]);
 
         let injectionSignature = JSON.stringify(Object.keys(possibleInjections));
 
-        if(instance[hasInjection] === injectionSignature) return;
+        if(this[getInjectionSignature](instance) === injectionSignature) return;
+
+        let descriptorsInstance = instance;
+        let descriptors = {};
 
         while(descriptorsInstance && descriptorsInstance !== Object.prototype) {
-            descriptors = Object.assign(descriptors, getOwnPropertyDescriptors(descriptorsInstance));
+            let newDescriptors = getOwnPropertyDescriptors(descriptorsInstance);
+            for(let key in newDescriptors) {
+                if(key === "constructor" || key === "__proto__" || key === "prototype"){
+                    continue;
+                }
+
+                if(!descriptors[key] || descriptors[key].configurable){
+                    descriptors[key] = newDescriptors[key];
+                }
+            }
+
             if (descriptorsInstance.prototype) {
                 descriptorsInstance = descriptorsInstance.prototype;
             } else if(descriptorsInstance.__proto__){
@@ -171,7 +189,7 @@ export default class Injector {
             }
         }
         
-        for(var key in descriptors) {
+        for(let key in descriptors) {
             let desc = descriptors[key];
 
             if(!desc || !desc.value) continue;
@@ -181,8 +199,6 @@ export default class Injector {
             if (typeof desc.value === "function" || !iKey || possibleInjections[iKey] === undefined) {
                 continue;
             }
-
-            if(!desc.writable) throw new Error(`Injection keys must be writable! ${key} is not writable!`);
 
             if(!desc.configurable) continue;
 
@@ -199,9 +215,9 @@ export default class Injector {
                 enumerable: true,
                 configurable: false
             });
-
-            instance[hasInjection] = injectionSignature
         }
+
+        this[applyInjectionSignature](instance, injectionSignature);
 
         return instance;
     }

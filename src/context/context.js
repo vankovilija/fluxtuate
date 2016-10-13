@@ -81,7 +81,7 @@ export default class Context {
 
         Object.defineProperty(this, "mediatorMap", {
             get() {
-                return this[commandMap];
+                return this[mediatorMap];
             }
         });
 
@@ -120,7 +120,10 @@ export default class Context {
         this[contextDispatcher] = new EventDispatcher();
 
         this[applyContext] = (instance, ...injections) => {
-            this[injector].inject.apply(this[injector], [instance, ...injections]);
+            this[injector].inject(instance, ...injections);
+            if(this[parent]){
+                this[parent][applyContext](instance);
+            }
         };
 
         this[applyMediatorContext] = (instance, ...injections) => {
@@ -142,7 +145,10 @@ export default class Context {
                 instance.destroy = removeInjections;
             }
 
-            this[applyContext].apply(this, [instance, modelInjections, this[mediatorInjections], ...injections]);
+            this[injector].inject.apply(this[injector], [instance, modelInjections, this[mediatorInjections], ...injections]);
+            if(this[parent]){
+                this[parent][applyMediatorContext](instance, ...injections);
+            }
         };
 
         this[applyGuardContext] = (instance, ...injections) => {
@@ -164,7 +170,10 @@ export default class Context {
                 instance.destroy = removeInjections;
             }
 
-            this[applyContext].apply(this, [instance, modelInjections, this[mediatorInjections], this[commandInjections], ...injections]);
+            this[injector].inject.apply(this[injector], [instance, modelInjections, this[mediatorInjections], this[commandInjections], ...injections]);
+            if(this[parent]){
+                this[parent][applyGuardContext](instance, ...injections);
+            }
         };
 
         this[applyCommandContext] = (instance, ...injections) => {
@@ -181,8 +190,11 @@ export default class Context {
                     }
                 });
             }
-            
-            this[applyContext].apply(this, [instance, modelInjections, this[commandInjections], ...injections]);
+
+            this[injector].inject.apply(this[injector], [instance, modelInjections, this[commandInjections], ...injections]);
+            if(this[parent]){
+                this[parent][applyCommandContext](instance, ...injections);
+            }
         };
 
         this[checkDestroyed] = () => {
@@ -372,7 +384,7 @@ export default class Context {
 
         this[applyConfiguration] = (Config)=>{
             let config = new Config();
-            this[applyContext](config, this[mediatorInjections], this[commandInjections], {store: this[storeFunction]}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined);
+            this[applyContext](config, this[mediatorInjections], this[commandInjections], {store: this[storeFunction]}, this[parent]?{parentContext: this[parent]}:undefined);
             config.configure();
             this[configurations].push(config);
         };
@@ -491,7 +503,7 @@ export default class Context {
             throw new Error("Plugins must contain a initialize method!");
         }
         let p = new pluginClass();
-        this[applyContext](p, this[mediatorInjections], this[commandInjections], {options: options}, this[parent]?this[parent][injector]:undefined, this[parent]?{parentContext: this[parent]}:undefined, {contextDispatcher: this[contextDispatcher]});
+        this[applyContext](p, this[mediatorInjections], this[commandInjections], {options: options}, this[parent]?{parentContext: this[parent]}:undefined, {contextDispatcher: this[contextDispatcher]});
         this[plugins].push(p);
         p.initialize(this[injectAsDefault], this[removeAsDefault]);
         
