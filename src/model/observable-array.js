@@ -38,7 +38,7 @@ export default class ObservableArray extends RetainEventDispatcher{
                 throw new Error("You are trying to access a destroyed array!");
             }
         };
-        this[configureElementListeners] = (oldData) => {
+        this[configureElementListeners] = (oldData = []) => {
             if(oldData === this[innerArray]) return;
 
             oldData.forEach((elem, index)=>{
@@ -118,6 +118,8 @@ export default class ObservableArray extends RetainEventDispatcher{
                 configurable: false
             })
         });
+
+        this[configureElementListeners]();
     }
 
     forEach(callback) {
