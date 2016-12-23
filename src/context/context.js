@@ -640,6 +640,10 @@ export default class Context {
         return this[destroyed];
     }
     
+    get dispatcher() {
+        return this[eventDispatcher];
+    }
+    
     destroy() {
         if(this[destroyed]) return;
 
