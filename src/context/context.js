@@ -383,7 +383,7 @@ export default class Context {
                 }
 
                 let model = self[store].mapModel(modelClass, self).toKey(storeName);
-                this[contextDispatcher].dispatch("modelAdded", {context: this, model: model});
+                this[contextDispatcher].dispatch("modelAdded", {context: this, model: model, modelKey: storeName});
                 self[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
                 self[models][injectionKey] = Object.assign({}, model, {wrapper: new ContextModelWrapper(model.modelInstance)});
 
@@ -391,7 +391,7 @@ export default class Context {
             },
             removeModel(storeName) {
                 let model = self[store].unmapModelKey(storeName, this);
-                this[contextDispatcher].dispatch("modelRemoved", {context: this, model: model});
+                this[contextDispatcher].dispatch("modelRemoved", {context: this, model: model, modelKey: storeName});
             },
             getModel(modelName) {
                 if(!self[models][modelName]){
