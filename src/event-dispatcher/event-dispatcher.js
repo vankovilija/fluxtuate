@@ -1,5 +1,5 @@
 import invokeFunction from "../utils/invokeFunction"
-import {destroy, pause, resume, eventMap, sendEvent} from "./_internals"
+import {destroy, pause, resume, eventMap, sendEvent, eventDispatchCallback} from "./_internals"
 
 const isPaused = Symbol("fluxtuateEventDispatcher_isPaused");
 const children = Symbol("fluxtuateEventDispatcher_children");
@@ -18,6 +18,7 @@ function sortEvents(event1, event2) {
 
 export default class EventDispatcher {
     constructor() {
+        this[eventDispatchCallback] = null;
         this[eventMap] = {};
         this[isPaused] = false;
         this[children] = [];
@@ -71,6 +72,11 @@ export default class EventDispatcher {
         this[sendEvent] = (event, payload, eventMetaData) => {
             let eventList = this[eventMap][event.eventName];
             if(!eventList) return;
+
+            if(this[eventDispatchCallback]) {
+                this[eventDispatchCallback](event, payload, eventMetaData);
+            }
+
             eventList = eventList.slice();
 
             eventList = eventList.sort(sortEvents);
