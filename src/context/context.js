@@ -8,7 +8,16 @@ import Store from "../model/store"
 import CommandMap from "../command/command-map"
 import CommandModelWrapper from "../command/command-model-wrapper"
 import Injector from "../inject/context-injector"
-import {applyContext, applyCommandContext, applyMediatorContext, applyGuardContext, contextMediatorCallback, store, mediators} from "./_internals"
+import {
+    applyContext,
+    applyCommandContext,
+    applyMediatorContext,
+    applyGuardContext,
+    contextMediatorCallback,
+    store,
+    mediators,
+    contextDispatcher
+} from "./_internals"
 import {isFunction} from "lodash/lang"
 import {autobind} from "core-decorators"
 
@@ -38,7 +47,6 @@ const plugins = Symbol("fluxtuateContext_plugins");
 const globalPlugins = Symbol("fluxtuateContext_globalPlugins");
 const configured = Symbol("fluxtuateContext_configured");
 const restart = Symbol("fluxtuateContext_restart");
-const contextDispatcher = Symbol("fluxtuateContext_dispatcher");
 const applyConfiguration = Symbol("fluxtuateContext_applyConfiguration");
 const injectAsDefault = Symbol("fluxtuateContext_injectAsDefault");
 const removeAsDefault = Symbol("fluxtuateContext_removeAsDefault");
