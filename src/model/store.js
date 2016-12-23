@@ -103,6 +103,7 @@ export default class Store extends RetainEventDispatcher{
                 delete this[models][key];
             }
         }
+        return model;
     }
 
     get models() {

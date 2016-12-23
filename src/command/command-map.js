@@ -76,6 +76,7 @@ export default class CommandMap extends EventDispatcher{
                     this.unmapEvent(eventName, commandObject.command);
                 }
                 completeCount++;
+                this.dispatch("completeCommand", command);
                 if(isFunction(command.destroy)){
                     command.destroy();
                 }
@@ -215,6 +216,7 @@ export default class CommandMap extends EventDispatcher{
         command[eventKey] = eventName;
         command[eventPayloadKey] = payload;
         this[commandsContext][applyCommandContext](command, {payload: payload});
+        this.dispatch("executeCommand", command);
         setTimeout(()=>{
             command.execute();
         }, 0);

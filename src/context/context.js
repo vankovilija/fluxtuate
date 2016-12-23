@@ -46,7 +46,7 @@ const checkDestroyed = Symbol("fluxtuateContext_checkDestroyed");
 const commandInjections = Symbol("fluxtuateContext_commandInjections");
 const mediatorInjections = Symbol("fluxtuateContext_mediatorInjections");
 const contextName = Symbol("fluxtuateContext_contextName");
-
+const executeCommandCallback = Symbol("fluxtuateContext_executeCommandCallback");
 const models = Symbol("fluxtuateContext_models");
 
 const globalStore = new Store();
@@ -69,9 +69,16 @@ export default class Context {
         this[mediatorInjections] = {};
         this[parent] = undefined;
 
+        this[executeCommandCallback] = (event, command)=>{
+            this[contextDispatcher].dispatch(event.eventName, command);
+        };
+
         this[mediatorMap] = new MediatorMap(this);
         this[commandMap] = new CommandMap(this[eventDispatcher], this);
         this[injector] = new Injector(this, this[eventDispatcher], this[mediatorMap], this[commandMap]);
+
+        this[commandMap].addListener("executeCommand", this[executeCommandCallback]);
+        this[commandMap].addListener("completeCommand", this[executeCommandCallback]);
 
         Object.defineProperty(this, "commandMap", {
             get() {
@@ -368,10 +375,15 @@ export default class Context {
                 }
 
                 let model = self[store].mapModel(modelClass, self).toKey(storeName);
+                this[contextDispatcher].dispatch("modelAdded", {context: this, model: model});
                 self[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
                 self[models][injectionKey] = Object.assign({}, model, {wrapper: new ContextModelWrapper(model.modelInstance)});
 
                 self[storeModels].push(storeName);
+            },
+            removeModel(storeName) {
+                let model = self[store].unmapModelKey(storeName, this);
+                this[contextDispatcher].dispatch("modelRemoved", {context: this, model: model});
             },
             getModel(modelName) {
                 if(!self[models][modelName]){
@@ -634,7 +646,8 @@ export default class Context {
         }
 
         while(this[storeModels].length > 0) {
-            this[store].unmapModelKey(this[storeModels].pop(), this);
+            let model = this[store].unmapModelKey(this[storeModels].pop(), this);
+            this[contextDispatcher].dispatch("modelRemoved", {context: this, model: model});
         }
 
         for(let key in this[models]){
