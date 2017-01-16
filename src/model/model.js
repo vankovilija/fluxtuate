@@ -146,8 +146,18 @@ export default class Model extends RetainEventDispatcher {
         }
     }
 
-    setKeyValue(key, value, elementR) {
+    setKeyValue(modelKey, value, elementR) {
         let props = this[propertiesCache];
+        let key;
+        for(let k in props) {
+            if(props.hasOwnProperty(k) && props[k].modelKey === modelKey){
+                key = k;
+                break;
+            }
+        }
+
+        if(!key) return;
+
         if(props[key].listener){
             props[key].listener.remove();
             props[key].listener = undefined;
