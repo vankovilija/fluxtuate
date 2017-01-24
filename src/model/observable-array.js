@@ -316,7 +316,7 @@ export default class ObservableArray extends RetainEventDispatcher{
             if(elListener.listener){
                 elListener.listener.remove();
             }
-            if(elListener.elem.destroy){
+            if(elListener.elem && elListener.elem.destroy){
                 elListener.elem.destroy();
             }
         });
