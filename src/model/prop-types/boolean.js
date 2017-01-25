@@ -1,6 +1,8 @@
 import {isBoolean} from "lodash/lang"
 
-export default (value = false, parentName, key) => {
+export default (value, parentName, key) => {
+    if(value === undefined) return undefined;
+
     if(value === "true")
         value = true;
     else if (value === "false") {
