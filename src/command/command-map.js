@@ -10,6 +10,7 @@ import Model from "../model"
 import ModelWrapper from "../model/model-wrapper"
 import {model} from "../model/_internals"
 import Promise from "bluebird"
+import {release} from "./_internals"
 
 const eventMap = Symbol("fluxtuateCommandMap_eventMap");
 const addCommand = Symbol("fluxtuateCommandMap_addCommand");
@@ -83,6 +84,9 @@ export default class CommandMap extends EventDispatcher{
                 if(commandCount === completeCount) {
                     this.dispatch("complete", {event: eventName, payload: payload});
                 }
+                if(commandObject.commandObject) {
+                    processCommandGuard(eventName, payload, commandObject.commandObject);
+                }
             }
 
             let executeInEvent = (eventName, payload, commandObject)=>{
@@ -125,11 +129,7 @@ export default class CommandMap extends EventDispatcher{
                 command.onComplete(completeCommandForEvent.bind(this, command, eventName, payload, commandObject));
             };
 
-            let commandMappings = this[eventMap][eventName].commands.slice();
-            commandMappings.forEach((commandObject)=>{
-                if(commandObject.stopPropagation) {
-                    event.stopPropagation();
-                }
+            let processCommandGuard = (eventName, payload, commandObject)=>{
                 if(commandObject.guards){
                     let guardPromises = commandObject.guards.map((guardObject)=>{
                         let guard;
@@ -162,7 +162,12 @@ export default class CommandMap extends EventDispatcher{
                     });
                     Promise.all(guardPromises).then((results)=>{
                         for(let i = 0; i < results.length; i++){
-                            if (!results[i]) return;
+                            if (!results[i]) {
+                                if(commandObject.commandObject) {
+                                    processCommandGuard(eventName, payload, commandObject.commandObject);
+                                }
+                                return;
+                            }
                         }
 
                         executeInEvent(eventName, payload, commandObject);
@@ -170,6 +175,14 @@ export default class CommandMap extends EventDispatcher{
                 }else{
                     executeInEvent(eventName, payload, commandObject);
                 }
+            };
+
+            let commandMappings = this[eventMap][eventName].commands.slice();
+            commandMappings.forEach((commandObject)=>{
+                if(commandObject.stopPropagation) {
+                    event.stopPropagation();
+                }
+                processCommandGuard(eventName, payload, commandObject);
             });
 
             if(commandCount === 0) {
@@ -218,7 +231,12 @@ export default class CommandMap extends EventDispatcher{
         this[commandsContext][applyCommandContext](command, {payload: payload});
         this.dispatch("executeCommand", command);
         setTimeout(()=>{
-            command.execute();
+            let result = command.execute();
+            if(result && isFunction(result.then)){
+                command[release](result);
+            }else{
+                command[release]();
+            }
         }, 0);
 
         return command;
@@ -236,9 +254,12 @@ export default class CommandMap extends EventDispatcher{
     mapEvent(eventName){
         let self = this;
         
-        function guardReturn(commandObject){
+        function mapEventReturn(commandObject){
             return {
                 withGuard(guardClass, ...guardProperties) {
+                    if(!commandObject) {
+                        throw new Error("No command is mapped yet!");
+                    }
                     if(!commandObject.guards) commandObject.guards = [];
                     commandObject.guards.push({
                         hasGuard: true,
@@ -246,9 +267,12 @@ export default class CommandMap extends EventDispatcher{
                         guardProperties: guardProperties
                     });
 
-                    return guardReturn(commandObject);
+                    return mapEventReturn(commandObject);
                 },
                 withoutGuard(guardClass, ...guardProperties) {
+                    if(!commandObject) {
+                        throw new Error("No command is mapped yet!");
+                    }
                     if(!commandObject.guards) commandObject.guards = [];
                     commandObject.guards.push({
                         hasGuard: false,
@@ -256,35 +280,67 @@ export default class CommandMap extends EventDispatcher{
                         guardProperties: guardProperties
                     });
 
-                    return guardReturn(commandObject);
+                    return mapEventReturn(commandObject);
                 },
                 withHook(hookClass, ...hookProperties) {
+                    if(!commandObject) {
+                        throw new Error("No command is mapped yet!");
+                    }
                     if(!commandObject.hooks) commandObject.hooks = [];
                     commandObject.hooks.push({
                         hook: hookClass,
                         hookProperties
                     });
 
-                    return guardReturn(commandObject);
+                    return mapEventReturn(commandObject);
                 },
                 stopPropagation() {
-                    commandObject.stopPropagation = true;
+                    if(!commandObject) {
+                        throw new Error("No command is mapped yet!");
+                    }
+                    let rootObject = commandObject;
+                    if(rootObject.rootCommand) {
+                        rootObject = rootObject.rootCommand;
+                    }
+                    rootObject.stopPropagation = true;
 
-                    return guardReturn(commandObject);
+                    return mapEventReturn(commandObject);
+                },
+                toCommand(command, ...commandProps) {
+                    let c = self[addCommand](eventName, command, commandProps, false);
+                    if(commandObject){
+                        commandObject.commandObject = c;
+                        if(commandObject.rootCommand) {
+                            c.rootCommand = commandObject.rootCommand;
+                        }else{
+                            c.rootCommand = commandObject;
+                        }
+                    }
+                    return mapEventReturn(c);
+                },
+                once(command, ...commandProps){
+                    let c = self[addCommand](eventName, command, commandProps, true);
+                    if(commandObject){
+                        commandObject.commandObject = c;
+                    }
+                    return mapEventReturn(c);
+                },
+                addEvent(addedEventName) {
+                    if(!commandObject) {
+                        throw new Error("No command is mapped yet!");
+                    }
+
+                    if(!this[eventMap][eventName]) this[eventMap][eventName] = {
+                        listener: this[eventDispatcher].addListener(eventName, this[executeCommandFromEvent]),
+                        commands: []
+                    };
+
+                    this[eventMap][addedEventName].commands.push(commandObject);
                 }
             };
         }
-        
-        return {
-            toCommand(command, ...commandProps) {
-                let commandObject = self[addCommand](eventName, command, commandProps, false);
-                return guardReturn(commandObject);
-            },
-            once(command, ...commandProps){
-                let commandObject = self[addCommand](eventName, command, commandProps, true);
-                return guardReturn(commandObject);
-            }
-        };
+
+        return mapEventReturn();
     }
 
     unmapEvent(eventName, command) {
@@ -292,13 +348,34 @@ export default class CommandMap extends EventDispatcher{
 
         let index = findIndex(this[eventMap][eventName].commands, {command: command});
 
+        if(index === -1) {
+            let commands = this[eventMap][eventName].commands;
+            if(!commands) return;
+            for(let i = 0; i < commands.length; i++) {
+                let commandObject = commands[i];
+                while(commandObject) {
+                    let parentCommandObject = commandObject;
+                    commandObject = commandObject.commandObject;
+                    if (commandObject) {
+                        if (commandObject.command === command) {
+                            parentCommandObject.commandObject = commandObject.commandObject;
+                            break;
+                        }
+                    }
+                }
+            }
+            return;
+        }
 
-        if(index === -1) return;
-
-        this[eventMap][eventName].commands.splice(index, 1);
-        if(this[eventMap][eventName].commands.length === 0) {
-            this[eventMap][eventName].listener.remove();
-            this[eventMap][eventName] = undefined;
+        let commandObject = this[eventMap][eventName].commands[index];
+        if(commandObject.commandObject){
+            this[eventMap][eventName].commands[index] = commandObject.commandObject;
+        }else {
+            this[eventMap][eventName].commands.splice(index, 1);
+            if (this[eventMap][eventName].commands.length === 0) {
+                this[eventMap][eventName].listener.remove();
+                this[eventMap][eventName] = undefined;
+            }
         }
     }
 
