@@ -336,6 +336,8 @@ export default class CommandMap extends EventDispatcher{
                     };
 
                     this[eventMap][addedEventName].commands.push(commandObject);
+
+                    return mapEventReturn(commandObject);
                 }
             };
         }
