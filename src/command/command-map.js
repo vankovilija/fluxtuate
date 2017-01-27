@@ -118,7 +118,12 @@ export default class CommandMap extends EventDispatcher{
                     });
                 }
                 commandCount++;
-                let command = this.executeCommand(eventName, commandObject.command, payload, ...commandObject.commandProperties);
+                let command = this.executeCommand(
+                    eventName,
+                    commandObject.command,
+                    commandObject.payloadProvider ? commandObject.payloadProvider(payload) : payload,
+                    ...commandObject.commandProperties
+                );
                 if(!command.commandName) {
                     Object.defineProperty(command, "commandName", {
                         get() {
@@ -304,6 +309,13 @@ export default class CommandMap extends EventDispatcher{
                     }
                     rootObject.stopPropagation = true;
 
+                    return mapEventReturn(commandObject);
+                },
+                payloadProvider(providerFunction) {
+                    if(!isFunction(providerFunction)) {
+                        throw new Error("Payload provider must be a function that returns a payload value!");
+                    }
+                    commandObject.payloadProvider = providerFunction;
                     return mapEventReturn(commandObject);
                 },
                 toCommand(command, ...commandProps) {
