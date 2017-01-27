@@ -18,8 +18,9 @@ const cleanDataCache = Symbol("fluxtuateObservableArray_cleanDataCache");
 const dataCacheValid = Symbol("fluxtuateObservableArray_dataCacheValid");
 const cleanDataCacheValid = Symbol("fluxtuateObservableArray_cleanDataCacheValid");
 const configureElementListeners = Symbol("fluxtuateObservableArray_configureElementListeners");
-const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift"];
-const arrayGetterMethods = ["slice", "indexOf", "map"];
+
+const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift", "copyWithin", "fill"];
+const arrayGetterMethods = ["slice", "indexOf", "lastIndexOf", "map", "reduce", "reduceRight", "filter", "concat", "includes", "join"];
 
 export default class ObservableArray extends RetainEventDispatcher{
     constructor(wrappedArray, name, parentName, arrayConverterFunction) {
@@ -142,8 +143,13 @@ export default class ObservableArray extends RetainEventDispatcher{
         return this[innerArray][id];
     }
     
-    setElement(elementR, id, value) {
+    setElement(elementR, id, v) {
         this[checkDestroyed]();
+
+        let value = v;
+        if(value.modelData) {
+            value = value.modelData;
+        }
 
         let oldData = this[innerArray];
         this[innerArray] = this[innerArray].slice();

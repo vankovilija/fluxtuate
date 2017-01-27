@@ -146,7 +146,7 @@ export default class Model extends RetainEventDispatcher {
         }
     }
 
-    setKeyValue(modelKey, value, elementR) {
+    setKeyValue(modelKey, v, elementR) {
         let props = this[propertiesCache];
         let key;
         for(let k in props) {
@@ -157,6 +157,11 @@ export default class Model extends RetainEventDispatcher {
         }
 
         if(!key) return;
+
+        let value = v;
+        if(value.modelData) {
+            value = value.modelData;
+        }
 
         if(props[key].listener){
             props[key].listener.remove();
@@ -180,7 +185,12 @@ export default class Model extends RetainEventDispatcher {
         this[dispatchUpdate](elementR);
     }
 
-    setValue(value, elementResponsible) {
+    setValue(v, elementResponsible) {
+        let value = v;
+        if(value.modelData) {
+            value = value.modelData;
+        }
+
         this.clear();
         this.update(value, elementResponsible);
     }
