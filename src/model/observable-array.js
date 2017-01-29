@@ -25,7 +25,13 @@ const arrayGetterMethods = ["slice", "indexOf", "lastIndexOf", "map", "reduce", 
 export default class ObservableArray extends RetainEventDispatcher{
     constructor(wrappedArray, name, parentName, arrayConverterFunction) {
         super();
-        this[arrayConverter] = arrayConverterFunction;
+        this[arrayConverter] = (e, parent, elementName)=>{
+            let element = e;
+            if(element.modelData){
+                element = element.modelData;
+            }
+            return arrayConverterFunction(element, parent, elementName);
+        };
         this[arrayParent] = parentName;
         this[arrayName] = name;
         this[innerArray] = wrappedArray;
