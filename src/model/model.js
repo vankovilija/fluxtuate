@@ -214,7 +214,7 @@ export default class Model extends RetainEventDispatcher {
             let modelKey = key;
             if (isObject(props[key])) {
                 let potentialKeyValue = updateData[key];
-                if(potentialKeyValue.modelData) {
+                if(potentialKeyValue && potentialKeyValue.modelData) {
                     potentialKeyValue = potentialKeyValue.modelData;
                 }
                 if (this[data][key] && isFunction(this[data][key].update)) {

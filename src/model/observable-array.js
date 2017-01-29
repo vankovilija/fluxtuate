@@ -27,7 +27,7 @@ export default class ObservableArray extends RetainEventDispatcher{
         super();
         this[arrayConverter] = (e, parent, elementName)=>{
             let element = e;
-            if(element.modelData){
+            if(element && element.modelData){
                 element = element.modelData;
             }
             return arrayConverterFunction(element, parent, elementName);
