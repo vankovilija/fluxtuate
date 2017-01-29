@@ -233,9 +233,9 @@ export default class CommandMap extends EventDispatcher{
         }
         command[eventKey] = eventName;
         command[eventPayloadKey] = payload;
-        this[commandsContext][applyCommandContext](command, {payload: payload});
         this.dispatch("executeCommand", command);
         setTimeout(()=>{
+            this[commandsContext][applyCommandContext](command, {payload: payload});
             let result = command.execute();
             if(result && isFunction(result.then)){
                 command[release](result);
