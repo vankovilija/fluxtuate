@@ -322,6 +322,10 @@ export default class CommandMap extends EventDispatcher{
                     let c = self[addCommand](eventName, command, commandProps, false);
                     if(commandObject){
                         commandObject.commandObject = c;
+                        let commandIndex = self[eventMap][eventName].commands.indexOf(c);
+                        if(commandIndex !== -1) {
+                            self[eventMap][eventName].commands.splice(commandIndex, 1);
+                        }
                         if(commandObject.rootCommand) {
                             c.rootCommand = commandObject.rootCommand;
                         }else{
