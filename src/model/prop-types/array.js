@@ -6,8 +6,8 @@ function defineArrayProps(returnArray, name, parentName, convertFunction) {
     return new ObservableArray(returnArray, name, parentName, convertFunction);
 }
 
-function convert(conversionFunction, data = [], parentName, parentProperty){
-    if(data instanceof ObservableArray) return data;
+function convert(conversionFunction, data, parentName, parentProperty){
+    if(data === undefined) return undefined;
 
     if(!isArray(data)) throw new Error("Value must be of type Array");
 

@@ -1,6 +1,8 @@
 import {isString} from "lodash/lang"
 
-export default (value = "", parent, key) => {
+export default (value, parent, key) => {
+    if(value === undefined) return undefined;
+
     let originalValue = value;
     value = String(value);
     if(!isString(value)) {

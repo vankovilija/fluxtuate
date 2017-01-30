@@ -1,7 +1,9 @@
 import {isFunction, isArray, isObject} from "lodash/lang"
 import getOwnKeys from "../../utils/getOwnKeys"
 
-function convert(valueType, typeProperty, typeChecks, value = {}, parentName, parentProperty) {
+function convert(valueType, typeProperty, typeChecks, value, parentName, parentProperty) {
+    if(value === undefined) return undefined;
+
     if(!valueType) return value;
 
     if(!isObject(value)){
