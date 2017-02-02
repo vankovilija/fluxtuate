@@ -8,6 +8,7 @@ import reservedWords from "./reserved"
 import {autobind} from "core-decorators"
 import deepData from "./deep-data"
 
+const calculatedCache = Symbol("fluxtuateModel_calculatedCache");
 const data = Symbol("fluxtuateModel_data");
 const calculatedFields = Symbol("fluxtuateModel_calculatedFields");
 const dispatchUpdate = Symbol("fluxtuateModel_dispatchUpdate");
@@ -27,6 +28,7 @@ export default class Model extends RetainEventDispatcher {
         this[cleanCacheValid] = false;
 
         this[propertiesCache] = {};
+        this[calculatedCache] = {};
 
         forEachPrototype(this, (proto)=>{
             if(Object.getOwnPropertySymbols(proto).indexOf(properties) !== -1)
@@ -72,10 +74,7 @@ export default class Model extends RetainEventDispatcher {
         Object.defineProperty(this, "modelData", {
             get() {
                 if(!this[dataCacheValid]){
-                    let calcs = {};
-                    this[calculatedFields].forEach((k)=> {
-                        calcs[k] = this[k];
-                    });
+                    let calcs = this[calculatedCache];
                     let mData = {};
                     let props = this[propertiesCache];
                     for (let k in props) {
@@ -97,10 +96,7 @@ export default class Model extends RetainEventDispatcher {
         Object.defineProperty(this, "cleanData", {
             get() {
                 if(!this[cleanCacheValid]) {
-                    let calcs = {};
-                    this[calculatedFields].forEach((k)=> {
-                        calcs[k] = this[k];
-                    });
+                    let calcs = this[calculatedCache];
                     let mData = {};
                     let props = this[propertiesCache];
                     for (let k in props) {
@@ -142,6 +138,11 @@ export default class Model extends RetainEventDispatcher {
             this[dataCacheValid] = false;
             let payload = {data: this.modelData, name: this.modelName};
             payload[elementResponsible] = elementR;
+            
+            this[calculatedFields].forEach((k)=> {
+                this[calculatedCache][k] = this[k];
+            });
+            
             this.dispatch("update", payload);
         }
     }
