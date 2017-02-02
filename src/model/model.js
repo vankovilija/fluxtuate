@@ -134,14 +134,15 @@ export default class Model extends RetainEventDispatcher {
         });
 
         this[dispatchUpdate] = function (elementR) {
+            this[calculatedFields].forEach((k)=> {
+                this[calculatedCache][k] = this[k];
+            });
+
+            
             this[cleanCacheValid] = false;
             this[dataCacheValid] = false;
             let payload = {data: this.modelData, name: this.modelName};
             payload[elementResponsible] = elementR;
-            
-            this[calculatedFields].forEach((k)=> {
-                this[calculatedCache][k] = this[k];
-            });
             
             this.dispatch("update", payload);
         }
