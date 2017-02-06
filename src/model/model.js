@@ -138,7 +138,7 @@ export default class Model extends RetainEventDispatcher {
                 this[calculatedCache][k] = this[k];
             });
 
-            
+
             this[cleanCacheValid] = false;
             this[dataCacheValid] = false;
             let payload = {data: this.modelData, name: this.modelName};
@@ -227,9 +227,14 @@ export default class Model extends RetainEventDispatcher {
                     }
 
                     modelKey = props[key].modelKey;
-                    if (this[data][key] && isFunction(this[data][key].merge) && isFunction(potentialKeyValue.merge)) {
+                    if (
+                        this[data][key] &&
+                        isFunction(this[data][key].merge) &&
+                        potentialKeyValue &&
+                        isFunction(potentialKeyValue.merge)
+                    ) {
                         this[data][key].merge(elementR, potentialKeyValue);
-                    } else {
+                    } else if(potentialKeyValue){
                         this[data][key] = potentialKeyValue;
                     }
                 }
