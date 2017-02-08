@@ -67,9 +67,11 @@ export default class ObservableArray extends RetainEventDispatcher{
         this[configureElementListeners] = (oldData = []) => {
             if(oldData === this[innerArray]) return;
 
+            let removedElementsCount = 0;
             oldData.forEach((elem, index)=>{
                 if(this[innerArray].indexOf(elem) === -1) {
-                    let lObject = this[elementListeners].splice(index, 1)[0];
+                    let lObject = this[elementListeners].splice(index - removedElementsCount, 1)[0];
+                    removedElementsCount ++;
 
                     if(lObject.listener) {
                         lObject.listener.remove();
