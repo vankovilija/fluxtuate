@@ -1,8 +1,13 @@
 import {isFunction, isArray, isObject} from "lodash/lang"
 import getOwnKeys from "../../utils/getOwnKeys"
+import Model from "../model"
 
 function convert(valueType, typeProperty, typeChecks, value, parentName, parentProperty) {
     if(value === undefined) return undefined;
+
+    if(value.modelData){
+        value = value.modelData;
+    }
 
     if(!valueType) return value;
 
@@ -27,7 +32,7 @@ function convert(valueType, typeProperty, typeChecks, value, parentName, parentP
         if(value instanceof valueType) return value;
         let el;
         if(isFunction(valueType.prototype.update)){
-            el = new valueType(`${parentName}.${parentProperty}`);
+            el = Model.getInstance(valueType, `${parentName}.${parentProperty}`);
             el.update(value);
         }else{
             el = valueType(value, parentName, parentProperty);

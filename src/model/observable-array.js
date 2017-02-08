@@ -5,6 +5,7 @@ import {isFunction} from "lodash/lang"
 import {destroy} from "../event-dispatcher/_internals"
 
 const innerArray = Symbol("fluxtuateObservableArray_innerArray");
+const innerArrayIndex = Symbol("fluxtuateObservableArray_innerArrayIndex");
 const sendUpdate = Symbol("fluxtuateObservableArray_sendUpdate");
 const listeners = Symbol("fluxtuateObservableArray_listeners");
 const arrayName = Symbol("fluxtuateObservableArray_arrayName");
@@ -18,23 +19,41 @@ const cleanDataCache = Symbol("fluxtuateObservableArray_cleanDataCache");
 const dataCacheValid = Symbol("fluxtuateObservableArray_dataCacheValid");
 const cleanDataCacheValid = Symbol("fluxtuateObservableArray_cleanDataCacheValid");
 const configureElementListeners = Symbol("fluxtuateObservableArray_configureElementListeners");
+const updateTimeout = Symbol("fluxtuateObservableArray_updateTimeout");
 
 const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift", "copyWithin", "fill"];
 const arrayGetterMethods = ["slice", "indexOf", "lastIndexOf", "map", "reduce", "reduceRight", "filter", "concat", "includes", "join"];
 
+const oArrayCache = [];
+
 export default class ObservableArray extends RetainEventDispatcher{
+    static getInstance(wrappedArray, name, parentName, arrayConverterFunction) {
+        let oArray;
+        if(oArrayCache.length > 0) {
+            oArray = oArrayCache.shift();
+            oArray[arrayConverter] = arrayConverterFunction;
+            oArray[arrayParent] = parentName;
+            oArray[arrayName] = name;
+            oArray[innerArray] = wrappedArray;
+            oArray[innerArrayIndex] = {};
+            oArray[destroyed] = false;
+            oArray[dataCacheValid] = false;
+            oArray[cleanDataCacheValid] = false;
+            oArray[configureElementListeners]();
+        }else{
+            oArray = new ObservableArray(wrappedArray, name, parentName, arrayConverterFunction);
+        }
+
+        return oArray;
+    }
+
     constructor(wrappedArray, name, parentName, arrayConverterFunction) {
         super();
-        this[arrayConverter] = (e, parent, elementName)=>{
-            let element = e;
-            if(element && element.modelData){
-                element = element.modelData;
-            }
-            return arrayConverterFunction(element, parent, elementName);
-        };
+        this[arrayConverter] = arrayConverterFunction;
         this[arrayParent] = parentName;
         this[arrayName] = name;
         this[innerArray] = wrappedArray;
+        this[innerArrayIndex] = {};
         this[listeners] = [];
         this[destroyed] = false;
         this[elementListeners] = [];
@@ -56,6 +75,10 @@ export default class ObservableArray extends RetainEventDispatcher{
                         lObject.listener.remove();
                     }
 
+                    if(elem[primaryKey] && elem[elem[primaryKey]]) {
+                        this[innerArrayIndex][elem[elem[primaryKey]]] = undefined;
+                    }
+
                     if(elem.destroy) {
                         elem.destroy();
                     }
@@ -73,12 +96,20 @@ export default class ObservableArray extends RetainEventDispatcher{
                 }
 
                 if(this[elementListeners][index].elem !== elem) {
-                    if(this[elementListeners][index].elem && isFunction(this[elementListeners][index].elem.destroy)){
-                        this[elementListeners][index].elem.destroy();
+                    if(this[elementListeners][index].elem) {
+                        if (this[elementListeners][index].elem[primaryKey] && this[elementListeners][index].elem[this[elementListeners][index].elem[primaryKey]]) {
+                            this[innerArrayIndex][this[elementListeners][index].elem[this[elementListeners][index].elem[primaryKey]]] = undefined;
+                        }
+                        if (isFunction(this[elementListeners][index].elem.destroy)) {
+                            this[elementListeners][index].elem.destroy();
+                        }
                     }
                     if(this[elementListeners][index].listener){
                         this[elementListeners][index].listener.remove();
                         this[elementListeners][index].listener = undefined;
+                    }
+                    if(elem[primaryKey] && elem[elem[primaryKey]]) {
+                        this[innerArrayIndex][elem[elem[primaryKey]]] = elem;
                     }
                     if(elem && isFunction(elem.addListener)) {
                         this[elementListeners][index].elem = elem;
@@ -93,14 +124,23 @@ export default class ObservableArray extends RetainEventDispatcher{
         };
 
         this[sendUpdate] = (elementR, oldData)=>{
-            this[dataCacheValid] = false;
-            this[cleanDataCacheValid] = false;
-            this[configureElementListeners](oldData);
-            let payload = {
-                data: this.modelData, name: this.modelName
-            };
-            payload[elementResponsible] = elementR;
-            this.dispatch("update", payload);
+            if(this[destroyed]) return;
+
+            if(this[updateTimeout]) {
+                clearTimeout(this[updateTimeout]);
+                this[updateTimeout] = null;
+            }
+
+            this[updateTimeout] = setTimeout(()=>{
+                this[dataCacheValid] = false;
+                this[cleanDataCacheValid] = false;
+                this[configureElementListeners](oldData);
+                let payload = {
+                    data: this.modelData, name: this.modelName
+                };
+                payload[elementResponsible] = elementR;
+                this.dispatch("update", payload);
+            }, 100);
         };
         arraySetterMethods.forEach((methodName)=>{
             Object.defineProperty(this, methodName, {
@@ -218,17 +258,7 @@ export default class ObservableArray extends RetainEventDispatcher{
     find(id){
         this[checkDestroyed]();
 
-        for(let i = 0; i < this[innerArray].length; i++) {
-            let v = this[innerArray][i];
-            if(v[primaryKey]){
-                if(v[v[primaryKey]] == id)
-                    return v;
-            }else if(v.id){
-                if(v.id == id)
-                    return v;
-            }
-        }
-        return undefined;
+        return this[innerArrayIndex][id];
     }
 
     findIndex(model) {
@@ -320,9 +350,16 @@ export default class ObservableArray extends RetainEventDispatcher{
     destroy() {
         if(this[destroyed]) return;
 
+        if(this[updateTimeout]) {
+            clearTimeout(this[updateTimeout]);
+            this[updateTimeout] = null;
+        }
+
         this[listeners].forEach((listener)=>{
             listener.remove();
         });
+
+        this.clear(this);
 
         this[elementListeners].forEach((elListener) => {
             if(elListener.listener){
@@ -334,5 +371,6 @@ export default class ObservableArray extends RetainEventDispatcher{
         });
         this[destroyed] = true;
         this[destroy]();
+        oArrayCache.push(this);
     }
 }

@@ -3,7 +3,7 @@ import {isArray} from "lodash/lang"
 import instanceOf from "./instance-of"
 
 function defineArrayProps(returnArray, name, parentName, convertFunction) {
-    return new ObservableArray(returnArray, name, parentName, convertFunction);
+    return ObservableArray.getInstance(returnArray, name, parentName, convertFunction);
 }
 
 function convert(conversionFunction, data, parentName, parentProperty){

@@ -3,12 +3,13 @@ import forEachPrototype from "../utils/forEachPrototype"
 import {primaryKey, properties, elementResponsible, configureDefaultValues} from "./_internals"
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {destroy} from "../event-dispatcher/_internals"
-import {isFunction, isObject, cloneDeep} from "lodash/lang"
+import {isFunction, isObject} from "lodash/lang"
 import reservedWords from "./reserved"
 import {autobind} from "core-decorators"
 import deepData from "./deep-data"
 
 const calculatedCache = Symbol("fluxtuateModel_calculatedCache");
+const calculatedCacheValid = Symbol("fluxtuateModel_calculatedCacheValid");
 const data = Symbol("fluxtuateModel_data");
 const calculatedFields = Symbol("fluxtuateModel_calculatedFields");
 const dispatchUpdate = Symbol("fluxtuateModel_dispatchUpdate");
@@ -18,22 +19,92 @@ const dataCache = Symbol("fluxtuateModel_dataCache");
 const cleanDataCache = Symbol("fluxtuateModel_cleanDataCache");
 const dataCacheValid = Symbol("fluxtuateModel_cacheValid");
 const cleanCacheValid = Symbol("fluxtuateModel_cleanCacheValid");
+const mName = Symbol("fluxtuateModel_mName");
+const updateTimeout = Symbol("fluxtuateModel_updateTimeout");
+
+const pCacheIndex = [];
+const pCache = [];
+
+function getPropertiesCache(model) {
+    let proto = Object.getPrototypeOf(model);
+    let pCacheI = pCacheIndex.indexOf(proto);
+    let returnCache;
+    if(pCacheI === -1) {
+        returnCache = {};
+        forEachPrototype(model, (proto)=>{
+            if(Object.getOwnPropertySymbols(proto).indexOf(properties) !== -1)
+                returnCache = Object.assign(returnCache, proto[properties]);
+        }, Model);
+
+        pCache.push(returnCache);
+        pCacheIndex.push(proto);
+    } else {
+        returnCache = pCache[pCacheI];
+    }
+
+    let realReturnCache = {};
+    let keys = Object.keys(returnCache);
+    for(let i = 0; i < keys.length; i++) {
+        realReturnCache[keys[i]] = Object.assign({}, returnCache[keys[i]]);
+    }
+
+    return realReturnCache;
+}
+
+const iCacheIndex = [];
+const iCache = [];
+
+function getCacheForType(modelType) {
+    let iCacheI = iCacheIndex.indexOf(modelType);
+    let modelCache;
+
+    if(iCacheI === -1) {
+        modelCache = [];
+        iCacheIndex.push(modelType);
+        iCache.push(modelCache);
+    }else {
+        modelCache = iCache[iCacheI];
+    }
+
+    return modelCache;
+}
 
 @autobind
 export default class Model extends RetainEventDispatcher {
+    static getInstance(modelType, modelName) {
+        let cache = getCacheForType(modelType);
+        let model;
+        if(cache.length > 0) {
+            model = cache.shift();
+            model[dataCacheValid] = false;
+            model[cleanCacheValid] = false;
+            model[calculatedCacheValid] = false;
+            model[mName] = modelName;
+            model[configureDefaultValues]();
+        } else {
+            model = new modelType(modelName);
+            let props = model[propertiesCache];
+            for (let k in props) {
+                if (model[props[k].modelKey] !== undefined && props[k].defaultValue === undefined)
+                    props[k].defaultValue = model[props[k].modelKey];
+            }
+            model[configureDefaultValues]();
+        }
+
+        return model;
+    }
+
     constructor(modelName) {
         super();
+        this[mName] = modelName;
         this[data] = {};
         this[dataCacheValid] = false;
         this[cleanCacheValid] = false;
+        this[calculatedCacheValid] = false;
 
-        this[propertiesCache] = {};
         this[calculatedCache] = {};
 
-        forEachPrototype(this, (proto)=>{
-            if(Object.getOwnPropertySymbols(proto).indexOf(properties) !== -1)
-                this[propertiesCache] = Object.assign(this[propertiesCache], cloneDeep(proto[properties]));
-        }, Model);
+        this[propertiesCache] = getPropertiesCache(this);
 
         this[configureDefaultValues] = ()=> {
             let shouldUpdate = false;
@@ -41,9 +112,6 @@ export default class Model extends RetainEventDispatcher {
             for (let k in props) {
                 let keyDescriptor = Object.getOwnPropertyDescriptor(this, props[k].modelKey);
                 if(keyDescriptor && keyDescriptor.configurable) {
-                    if(this[props[k].modelKey] !== undefined && props[k].defaultValue === undefined)
-                        props[k].defaultValue = this[props[k].modelKey];
-
                     let self = this;
                     Object.defineProperty(this, props[k].modelKey, {
                         get() {
@@ -69,10 +137,16 @@ export default class Model extends RetainEventDispatcher {
             }
         };
 
-        setTimeout(this[configureDefaultValues], 0);
-
         Object.defineProperty(this, "modelData", {
             get() {
+                if(!this[calculatedCacheValid]) {
+                    this[calculatedFields].forEach((k) => {
+                        this[calculatedCache][k] = this[k];
+                    });
+                    this[calculatedCacheValid] = true;
+                    this[dataCacheValid] = false;
+                    this[cleanCacheValid] = false;
+                }
                 if(!this[dataCacheValid]){
                     let calcs = this[calculatedCache];
                     let mData = {};
@@ -95,6 +169,14 @@ export default class Model extends RetainEventDispatcher {
 
         Object.defineProperty(this, "cleanData", {
             get() {
+                if(!this[calculatedCacheValid]) {
+                    this[calculatedFields].forEach((k) => {
+                        this[calculatedCache][k] = this[k];
+                    });
+                    this[calculatedCacheValid] = true;
+                    this[dataCacheValid] = false;
+                    this[cleanCacheValid] = false;
+                }
                 if(!this[cleanCacheValid]) {
                     let calcs = this[calculatedCache];
                     let mData = {};
@@ -114,7 +196,7 @@ export default class Model extends RetainEventDispatcher {
 
         Object.defineProperty(this, "modelName", {
             get() {
-                return modelName;
+                return this[mName];
             }
         });
 
@@ -134,17 +216,30 @@ export default class Model extends RetainEventDispatcher {
         });
 
         this[dispatchUpdate] = function (elementR) {
-            this[calculatedFields].forEach((k)=> {
-                this[calculatedCache][k] = this[k];
-            });
+            if(this[updateTimeout]) {
+                clearTimeout(this[updateTimeout]);
+                this[updateTimeout] = null;
+            }
 
-
+            this[calculatedCacheValid] = false;
             this[cleanCacheValid] = false;
             this[dataCacheValid] = false;
-            let payload = {data: this.modelData, name: this.modelName};
-            payload[elementResponsible] = elementR;
-            
-            this.dispatch("update", payload);
+
+            this[updateTimeout] = setTimeout(()=>{
+                if(!this[calculatedCacheValid]) {
+                    this[calculatedFields].forEach((k) => {
+                        this[calculatedCache][k] = this[k];
+                    });
+                    this[calculatedCacheValid] = true;
+                }
+
+                let payload = {data: this.modelData, name: this.modelName};
+                payload[elementResponsible] = elementR;
+
+                this.dispatch("update", payload);
+
+                this[updateTimeout] = null;
+            }, 100);
         }
     }
 
@@ -173,6 +268,9 @@ export default class Model extends RetainEventDispatcher {
         if (this[data][key] && isFunction(this[data][key].setValue)) {
             this[data][key].setValue(value, elementR);
         } else {
+            if(this[data][key] && isFunction(this[data][key].destroy)) {
+                this[data][key].destroy();
+            }
             this[data][key] = props[key].convert(value, this.modelName, key);
         }
 
@@ -235,10 +333,16 @@ export default class Model extends RetainEventDispatcher {
                     ) {
                         this[data][key].merge(elementR, potentialKeyValue);
                     } else if(potentialKeyValue){
+                        if(this[data][key] && isFunction(this[data][key].destroy)) {
+                            this[data][key].destroy();
+                        }
                         this[data][key] = potentialKeyValue;
                     }
                 }
             } else {
+                if(this[data][key] && isFunction(this[data][key].destroy)) {
+                    this[data][key].destroy();
+                }
                 this[data][key] = updateData[key];
             }
 
@@ -305,7 +409,13 @@ export default class Model extends RetainEventDispatcher {
     }
 
     destroy() {
+        if(this[updateTimeout]) {
+            clearTimeout(this[updateTimeout]);
+            this[updateTimeout] = null;
+        }
         this.clear();
         this[destroy]();
+        let cache = getCacheForType(Object.getPrototypeOf(this));
+        cache.push(this);
     }
 }

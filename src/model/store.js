@@ -1,6 +1,7 @@
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {elementResponsible} from "./_internals"
 import {destroy, eventMap} from "../event-dispatcher/_internals"
+import Model from "./model"
 import ModelWrapper from "./model-wrapper"
 import {isString} from "lodash/lang"
 
@@ -70,7 +71,7 @@ export default class Store extends RetainEventDispatcher{
                     model.retainCount ++;
                     return model;
                 }
-                let mi = new modelClass(key);
+                let mi = Model.getInstance(modelClass, key);
                 model = {modelInstance: mi, storeWrapper: new ModelWrapper(mi), modelClass: modelClass, context, retainCount: 1};
                 model.listener = model.modelInstance.onUpdate((payload)=>{
                     self[dispatchUpdate](payload[elementResponsible]);
