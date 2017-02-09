@@ -9,8 +9,6 @@ const innerArrayIndex = Symbol("fluxtuateObservableArray_innerArrayIndex");
 const sendUpdate = Symbol("fluxtuateObservableArray_sendUpdate");
 const listeners = Symbol("fluxtuateObservableArray_listeners");
 const arrayName = Symbol("fluxtuateObservableArray_arrayName");
-const destroyed = Symbol("fluxtuateObservableArray_destroyed");
-const checkDestroyed = Symbol("fluxtuateObservableArray_checkDestroyed");
 const elementListeners = Symbol("fluxtuateObservableArray_elementListeners");
 const arrayConverter = Symbol("fluxtuateObservableArray_arrayConvertor");
 const arrayParent = Symbol("fluxtuateObservableArray_arrayParent");
@@ -36,7 +34,6 @@ export default class ObservableArray extends RetainEventDispatcher{
             oArray[arrayName] = name;
             oArray[innerArray] = wrappedArray;
             oArray[innerArrayIndex] = {};
-            oArray[destroyed] = false;
             oArray[dataCacheValid] = false;
             oArray[cleanDataCacheValid] = false;
             oArray[configureElementListeners]();
@@ -55,15 +52,9 @@ export default class ObservableArray extends RetainEventDispatcher{
         this[innerArray] = wrappedArray;
         this[innerArrayIndex] = {};
         this[listeners] = [];
-        this[destroyed] = false;
         this[elementListeners] = [];
         this[dataCacheValid] = false;
         this[cleanDataCacheValid] = false;
-        this[checkDestroyed] = ()=>{
-            if(this[destroyed]){
-                throw new Error("You are trying to access a destroyed array!");
-            }
-        };
         this[configureElementListeners] = (oldData = []) => {
             if(oldData === this[innerArray]) return;
 
@@ -131,8 +122,6 @@ export default class ObservableArray extends RetainEventDispatcher{
                 this[updateTimeout] = null;
             }
 
-            if(this[destroyed]) return;
-
             this[updateTimeout] = setTimeout(()=>{
                 this[dataCacheValid] = false;
                 this[cleanDataCacheValid] = false;
@@ -147,7 +136,6 @@ export default class ObservableArray extends RetainEventDispatcher{
         arraySetterMethods.forEach((methodName)=>{
             Object.defineProperty(this, methodName, {
                 value: (elementR, ...args)=>{
-                    this[checkDestroyed]();
 
                     let oldData = this[innerArray];
                     this[innerArray] = this[innerArray].slice();
@@ -186,14 +174,10 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
     
     getElement(id) {
-        this[checkDestroyed]();
-
         return this[innerArray][id];
     }
     
     setElement(elementR, id, v) {
-        this[checkDestroyed]();
-
         let value = v;
         if(value.modelData) {
             value = value.modelData;
@@ -206,14 +190,10 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     get length() {
-        this[checkDestroyed]();
-
         return this[innerArray].length;
     }
 
     setLength(elementR, value) {
-        this[checkDestroyed]();
-
         let oldArray = this[innerArray];
         this[innerArray] = this[innerArray].slice();
         this[innerArray].length = value;
@@ -221,8 +201,6 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     onUpdate(callback) {
-        this[checkDestroyed]();
-
         let listener = this.addListener("update", (ev, payload)=>{
             callback(payload);
         });
@@ -232,8 +210,6 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     get modelData() {
-        this[checkDestroyed]();
-
         if(!this[dataCacheValid]) {
             let wrapper = {data: this[innerArray].slice()};
             let deep = deepData(wrapper, "modelData");
@@ -245,8 +221,6 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     get cleanData() {
-        this[checkDestroyed]();
-
         if(!this[cleanDataCacheValid]) {
             let wrapper = {data: this[innerArray].slice()};
             let deep = deepData(wrapper, "cleanData");
@@ -258,14 +232,10 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     find(id){
-        this[checkDestroyed]();
-
         return this[innerArrayIndex][id];
     }
 
     findIndex(model) {
-        this[checkDestroyed]();
-
         for(let i = 0; i < this[innerArray].length; i++) {
             if(isFunction(this[innerArray][i].compare)) {
                 if (this[innerArray][i].compare(model)) {
@@ -282,8 +252,6 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     remove(elementR, id) {
-        this[checkDestroyed]();
-
         let oldArray = this[innerArray];
         this[innerArray] = this[innerArray].slice();
 
@@ -297,16 +265,12 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     clear(elementR) {
-        this[checkDestroyed]();
-
         let oldArray = this[innerArray];
         this[innerArray] = [];
         this[sendUpdate](elementR, oldArray);
     }
 
     merge(elementR, secondArray) {
-        this[checkDestroyed]();
-
         let oldArray = this[innerArray];
         let newArray = this[innerArray].slice();
         secondArray.forEach((elem, index)=>{
@@ -335,8 +299,6 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     compare(secondArray) {
-        this[checkDestroyed]();
-
         if(this[innerArray].length !== secondArray.length) return false;
         
         this[innerArray].forEach((elem, index)=>{
@@ -350,8 +312,6 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     destroy() {
-        if(this[destroyed]) return;
-
         if(this[updateTimeout]) {
             clearTimeout(this[updateTimeout]);
             this[updateTimeout] = null;
@@ -371,8 +331,7 @@ export default class ObservableArray extends RetainEventDispatcher{
                 elListener.elem.destroy();
             }
         });
-        this[destroyed] = true;
-        this[destroy]();
+
         oArrayCache.push(this);
     }
 }
