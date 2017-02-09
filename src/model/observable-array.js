@@ -126,12 +126,12 @@ export default class ObservableArray extends RetainEventDispatcher{
         };
 
         this[sendUpdate] = (elementR, oldData)=>{
-            if(this[destroyed]) return;
-
             if(this[updateTimeout]) {
                 clearTimeout(this[updateTimeout]);
                 this[updateTimeout] = null;
             }
+
+            if(this[destroyed]) return;
 
             this[updateTimeout] = setTimeout(()=>{
                 this[dataCacheValid] = false;
