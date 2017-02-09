@@ -64,16 +64,16 @@ export default class ObservableArray extends RetainEventDispatcher{
                     let lObject = this[elementListeners].splice(index - removedElementsCount, 1)[0];
                     removedElementsCount ++;
 
-                    if(lObject.listener) {
-                        lObject.listener.remove();
-                    }
-
                     if(elem[primaryKey] && elem[elem[primaryKey]]) {
                         this[innerArrayIndex][elem[elem[primaryKey]]] = undefined;
                     }
 
                     if(elem.destroy) {
                         elem.destroy();
+                    }
+
+                    if(lObject && lObject.listener) {
+                        lObject.listener.remove();
                     }
                 }
             });
