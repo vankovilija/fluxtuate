@@ -84,6 +84,11 @@ export default class CommandMap extends EventDispatcher{
                 if(commandCount === completeCount) {
                     this.dispatch("complete", {event: eventName, payload: payload});
                 }
+
+                if(commandObject.event) {
+                    ed.dispatch(commandObject.event.eventName, commandObject.event.payload || commandObject.event.payloadProvider(payload));
+                }
+
                 if(commandObject.commandObject) {
                     processCommandGuard(eventName, payload, commandObject.commandObject);
                 }
@@ -352,6 +357,23 @@ export default class CommandMap extends EventDispatcher{
                     };
 
                     this[eventMap][addedEventName].commands.push(commandObject);
+
+                    return mapEventReturn(commandObject);
+                },
+                withEvent(eventName, payload) {
+                    if(!commandObject) {
+                        throw new Error("No command is mapped yet!");
+                    }
+
+                    commandObject.event = {
+                        eventName
+                    };
+
+                    if(isFunction(payload)){
+                        commandObject.event.payloadProvider = payload;
+                    }else{
+                        commandObject.event.payload = payload;
+                    }
 
                     return mapEventReturn(commandObject);
                 }
