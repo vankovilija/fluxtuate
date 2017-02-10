@@ -409,13 +409,14 @@ export default class Model extends RetainEventDispatcher {
     }
 
     destroy() {
+        this.clear(this);
+        this[destroy]();
+        let cache = getCacheForType(Object.getPrototypeOf(this));
+        cache.push(this);
+
         if(this[updateTimeout]) {
             clearTimeout(this[updateTimeout]);
             this[updateTimeout] = null;
         }
-        this.clear();
-        this[destroy]();
-        let cache = getCacheForType(Object.getPrototypeOf(this));
-        cache.push(this);
     }
 }

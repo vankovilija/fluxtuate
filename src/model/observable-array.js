@@ -78,6 +78,10 @@ export default class ObservableArray extends RetainEventDispatcher{
             });
 
             this[innerArray].forEach((elem, index)=>{
+                if(elem[primaryKey] !== undefined && elem[elem[primaryKey]] !== undefined) {
+                    this[innerArrayIndex][elem[elem[primaryKey]]] = elem;
+                }
+
                 if(oldData.indexOf(elem) !== -1) return;
 
                 elem = this[arrayConverter](elem, this[arrayParent], `${this[arrayName]}[${index}]`);
@@ -89,7 +93,7 @@ export default class ObservableArray extends RetainEventDispatcher{
 
                 if(this[elementListeners][index].elem !== elem) {
                     if(this[elementListeners][index].elem) {
-                        if (this[elementListeners][index].elem[primaryKey] && this[elementListeners][index].elem[this[elementListeners][index].elem[primaryKey]]) {
+                        if (this[elementListeners][index].elem[primaryKey] !== undefined && this[elementListeners][index].elem[this[elementListeners][index].elem[primaryKey]] !== undefined) {
                             this[innerArrayIndex][this[elementListeners][index].elem[this[elementListeners][index].elem[primaryKey]]] = undefined;
                         }
                         if (isFunction(this[elementListeners][index].elem.destroy)) {
@@ -99,9 +103,6 @@ export default class ObservableArray extends RetainEventDispatcher{
                     if(this[elementListeners][index].listener){
                         this[elementListeners][index].listener.remove();
                         this[elementListeners][index].listener = undefined;
-                    }
-                    if(elem[primaryKey] && elem[elem[primaryKey]]) {
-                        this[innerArrayIndex][elem[elem[primaryKey]]] = elem;
                     }
                     if(elem && isFunction(elem.addListener)) {
                         this[elementListeners][index].elem = elem;
@@ -235,6 +236,9 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     findIndex(model) {
+        if(model[primaryKey] !== undefined && model[model[primaryKey]] !== undefined)
+            return this[innerArray].indexOf(this.find(model[model[primaryKey]]));
+
         for(let i = 0; i < this[innerArray].length; i++) {
             if(isFunction(this[innerArray][i].compare)) {
                 if (this[innerArray][i].compare(model)) {
@@ -266,6 +270,7 @@ export default class ObservableArray extends RetainEventDispatcher{
     clear(elementR) {
         let oldArray = this[innerArray];
         this[innerArray] = [];
+        this[innerArrayIndex] = {};
         this[sendUpdate](elementR, oldArray);
     }
 
@@ -311,11 +316,6 @@ export default class ObservableArray extends RetainEventDispatcher{
     }
 
     destroy() {
-        if(this[updateTimeout]) {
-            clearTimeout(this[updateTimeout]);
-            this[updateTimeout] = null;
-        }
-
         this[listeners].forEach((listener)=>{
             listener.remove();
         });
@@ -340,6 +340,12 @@ export default class ObservableArray extends RetainEventDispatcher{
         this[arrayParent] = "";
         this[arrayName] = "";
         this[innerArray] = [];
+
+
+        if(this[updateTimeout]) {
+            clearTimeout(this[updateTimeout]);
+            this[updateTimeout] = null;
+        }
 
         oArrayCache.push(this);
     }
