@@ -33,7 +33,6 @@ export default class ObservableArray extends RetainEventDispatcher{
             oArray[arrayParent] = parentName;
             oArray[arrayName] = name;
             oArray[innerArray] = wrappedArray;
-            oArray[innerArrayIndex] = {};
             oArray[dataCacheValid] = false;
             oArray[cleanDataCacheValid] = false;
             oArray[configureElementListeners]();
@@ -331,6 +330,16 @@ export default class ObservableArray extends RetainEventDispatcher{
                 elListener.elem.destroy();
             }
         });
+        this[elementListeners] = [];
+        this[listeners] = [];
+        this[innerArrayIndex] = {};
+
+        this[dataCacheValid] = false;
+        this[cleanDataCacheValid] = false;
+        this[arrayConverter] = undefined;
+        this[arrayParent] = "";
+        this[arrayName] = "";
+        this[innerArray] = [];
 
         oArrayCache.push(this);
     }
