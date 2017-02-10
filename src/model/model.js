@@ -182,7 +182,7 @@ export default class Model extends RetainEventDispatcher {
                     let mData = {};
                     let props = this[propertiesCache];
                     for (let k in props) {
-                        if (this[data][k] && !props[k][isDefault])
+                        if (this[data][k] !== undefined && !props[k][isDefault])
                             mData[k] = this[data][k];
                     }
 
@@ -253,7 +253,7 @@ export default class Model extends RetainEventDispatcher {
             }
         }
 
-        if(!key) return;
+        if(key === undefined) return;
 
         let value = v;
         if(value.modelData) {
@@ -308,7 +308,7 @@ export default class Model extends RetainEventDispatcher {
             let key = keys[i];
             let props = this[propertiesCache];
 
-            if(!props[key])
+            if(props[key] === undefined)
                 continue;
 
             let modelKey = key;
@@ -326,13 +326,13 @@ export default class Model extends RetainEventDispatcher {
 
                     modelKey = props[key].modelKey;
                     if (
-                        this[data][key] &&
+                        this[data][key] !== undefined &&
                         isFunction(this[data][key].merge) &&
-                        potentialKeyValue &&
+                        potentialKeyValue !== undefined &&
                         isFunction(potentialKeyValue.merge)
                     ) {
                         this[data][key].merge(elementR, potentialKeyValue);
-                    } else if(potentialKeyValue){
+                    } else if(potentialKeyValue !== undefined){
                         if(this[data][key] && isFunction(this[data][key].destroy)) {
                             this[data][key].destroy();
                         }
