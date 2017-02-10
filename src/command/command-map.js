@@ -85,12 +85,16 @@ export default class CommandMap extends EventDispatcher{
                     this.dispatch("complete", {event: eventName, payload: payload});
                 }
 
-                if(commandObject.event) {
-                    ed.dispatch(commandObject.event.eventName, commandObject.event.payload || commandObject.event.payloadProvider(payload));
+                if(commandObject.events) {
+                    for(let i = 0; i < commandObject.events.length; i++) {
+                        ed.dispatch(commandObject.events[i].eventName, commandObject.events[i].payload || commandObject.events[i].payloadProvider(payload));
+                    }
                 }
 
-                if(commandObject.commandObject) {
-                    processCommandGuard(eventName, payload, commandObject.commandObject);
+                if(commandObject.commandObjects) {
+                    for(let i = 0; i < commandObject.commandObjects.length; i++) {
+                        processCommandGuard(eventName, payload, commandObject.commandObjects[i]);
+                    }
                 }
             }
 
@@ -173,8 +177,10 @@ export default class CommandMap extends EventDispatcher{
                     Promise.all(guardPromises).then((results)=>{
                         for(let i = 0; i < results.length; i++){
                             if (!results[i]) {
-                                if(commandObject.commandObject) {
-                                    processCommandGuard(eventName, payload, commandObject.commandObject);
+                                if(commandObject.commandObjects) {
+                                    for(let i = 0; i < commandObject.commandObjects.length; i++) {
+                                        processCommandGuard(eventName, payload, commandObject.commandObjects[i]);
+                                    }
                                 }
                                 return;
                             }
@@ -326,7 +332,10 @@ export default class CommandMap extends EventDispatcher{
                 toCommand(command, ...commandProps) {
                     let c = self[addCommand](eventName, command, commandProps, false);
                     if(commandObject){
-                        commandObject.commandObject = c;
+                        if(!commandObject.commandObjects) {
+                            commandObject.commandObjects = [];
+                        }
+
                         let commandIndex = self[eventMap][eventName].commands.indexOf(c);
                         if(commandIndex !== -1) {
                             self[eventMap][eventName].commands.splice(commandIndex, 1);
@@ -336,13 +345,29 @@ export default class CommandMap extends EventDispatcher{
                         }else{
                             c.rootCommand = commandObject;
                         }
+
+                        commandObject.commandObjects.push(c);
                     }
                     return mapEventReturn(c);
                 },
                 once(command, ...commandProps){
                     let c = self[addCommand](eventName, command, commandProps, true);
                     if(commandObject){
-                        commandObject.commandObject = c;
+                        if(!commandObject.commandObjects) {
+                            commandObject.commandObjects = [];
+                        }
+
+                        let commandIndex = self[eventMap][eventName].commands.indexOf(c);
+                        if(commandIndex !== -1) {
+                            self[eventMap][eventName].commands.splice(commandIndex, 1);
+                        }
+                        if(commandObject.rootCommand) {
+                            c.rootCommand = commandObject.rootCommand;
+                        }else{
+                            c.rootCommand = commandObject;
+                        }
+
+                        commandObject.commandObjects.push(c);
                     }
                     return mapEventReturn(c);
                 },
@@ -365,15 +390,21 @@ export default class CommandMap extends EventDispatcher{
                         throw new Error("No command is mapped yet!");
                     }
 
-                    commandObject.event = {
+                    if(!commandObject.events) {
+                        commandObject.events = [];
+                    }
+
+                    let event = {
                         eventName
                     };
 
                     if(isFunction(payload)){
-                        commandObject.event.payloadProvider = payload;
+                        event.payloadProvider = payload;
                     }else{
-                        commandObject.event.payload = payload;
+                        event.payload = payload;
                     }
+
+                    commandObject.events.push(event);
 
                     return mapEventReturn(commandObject);
                 }
