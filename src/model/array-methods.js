@@ -1,0 +1,2 @@
+export const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift", "copyWithin", "fill"];
+export const arrayGetterMethods = ["slice", "indexOf", "lastIndexOf", "map", "reduce", "reduceRight", "filter", "concat", "includes", "join"];

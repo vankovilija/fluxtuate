@@ -1,8 +1,9 @@
-import {model, context, destroyed, checkDestroyed, updateable, constructorProps, arrayConstructor, configureDefaultValues} from "./_internals"
+import {model, context, destroyed, checkDestroyed, updateable, constructorProps, arrayConstructor, dateConstructor, configureDefaultValues, dataType} from "./_internals"
 import getOwnKeys from "../utils/getOwnKeys"
 import reserved from "../model/reserved"
-import {isFunction, isArrayLike} from "lodash/lang"
+import {isFunction} from "lodash/lang"
 import ArrayWrapper from "./array-wrapper"
+import DateWrapper from "./date-wrapper"
 import forEachPrototype from "../utils/forEachPrototype"
 import Model from "./model"
 
@@ -23,6 +24,7 @@ export default class ModelWrapper {
         this[destroyed] = false;
         this[constructorProps] = [holderContext];
         this[arrayConstructor] = ArrayWrapper;
+        this[dateConstructor] = DateWrapper;
         this[checkDestroyed] = ()=>{
             if(this[destroyed]){
                 throw new Error("You are trying to access a destroyed model.");
@@ -57,8 +59,10 @@ export default class ModelWrapper {
                         this[checkDestroyed]();
 
                         if(wrappedModel[key] && isFunction(wrappedModel[key].onUpdate)){
-                            if(isArrayLike(wrappedModel[key])) {
+                            if(wrappedModel[key][dataType] === "array") {
                                 return new (Function.prototype.bind.apply(this[arrayConstructor], [this, wrappedModel[key], ...this[constructorProps]]));
+                            }else if(wrappedModel[key][dataType] === "date") {
+                                return new (Function.prototype.bind.apply(this[dateConstructor], [this, wrappedModel[key], ...this[constructorProps]]));
                             }else {
                                 return new (Function.prototype.bind.apply(this.constructor, [this, wrappedModel[key], ...this[constructorProps]]));
                             }

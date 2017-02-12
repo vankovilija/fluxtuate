@@ -1,6 +1,6 @@
 import getOwnKeys from "../utils/getOwnKeys"
 import forEachPrototype from "../utils/forEachPrototype"
-import {primaryKey, properties, elementResponsible, configureDefaultValues} from "./_internals"
+import {primaryKey, properties, elementResponsible, configureDefaultValues, dataType} from "./_internals"
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import {destroy} from "../event-dispatcher/_internals"
 import {isFunction, isObject} from "lodash/lang"
@@ -76,9 +76,6 @@ export default class Model extends RetainEventDispatcher {
         let model;
         if(cache.length > 0) {
             model = cache.shift();
-            model[dataCacheValid] = false;
-            model[cleanCacheValid] = false;
-            model[calculatedCacheValid] = false;
             model[mName] = modelName;
             model[configureDefaultValues]();
         } else {
@@ -96,6 +93,7 @@ export default class Model extends RetainEventDispatcher {
 
     constructor(modelName) {
         super();
+        this[dataType] = "object";
         this[mName] = modelName;
         this[data] = {};
         this[dataCacheValid] = false;
@@ -318,7 +316,7 @@ export default class Model extends RetainEventDispatcher {
                     potentialKeyValue = potentialKeyValue.modelData;
                 }
                 if (this[data][key] && isFunction(this[data][key].update)) {
-                    this[data][key].update(potentialKeyValue);
+                    this[data][key].update(potentialKeyValue, elementR);
                 } else {
                     if (isFunction(props[key].convert)) {
                         potentialKeyValue = props[key].convert(potentialKeyValue, this.modelName, key);
@@ -410,6 +408,9 @@ export default class Model extends RetainEventDispatcher {
 
     destroy() {
         this.clear(this);
+        this[dataCacheValid] = false;
+        this[cleanCacheValid] = false;
+        this[calculatedCacheValid] = false;
         this[destroy]();
         let cache = getCacheForType(Object.getPrototypeOf(this));
         cache.push(this);

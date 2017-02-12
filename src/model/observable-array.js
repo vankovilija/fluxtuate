@@ -1,7 +1,8 @@
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import deepData from "./deep-data"
-import {primaryKey, elementResponsible} from "./_internals"
-import {isFunction} from "lodash/lang"
+import {arrayGetterMethods, arraySetterMethods} from "./array-methods"
+import {primaryKey, elementResponsible, dataType} from "./_internals"
+import {isFunction, isArray} from "lodash/lang"
 import {destroy} from "../event-dispatcher/_internals"
 
 const innerArray = Symbol("fluxtuateObservableArray_innerArray");
@@ -18,9 +19,6 @@ const cleanDataCacheValid = Symbol("fluxtuateObservableArray_cleanDataCacheValid
 const configureElementListeners = Symbol("fluxtuateObservableArray_configureElementListeners");
 const updateTimeout = Symbol("fluxtuateObservableArray_updateTimeout");
 
-const arraySetterMethods = ["pop", "push", "reverse", "shift", "sort", "splice", "unshift", "copyWithin", "fill"];
-const arrayGetterMethods = ["slice", "indexOf", "lastIndexOf", "map", "reduce", "reduceRight", "filter", "concat", "includes", "join"];
-
 const oArrayCache = [];
 
 export default class ObservableArray extends RetainEventDispatcher{
@@ -32,8 +30,6 @@ export default class ObservableArray extends RetainEventDispatcher{
             oArray[arrayParent] = parentName;
             oArray[arrayName] = name;
             oArray[innerArray] = wrappedArray;
-            oArray[dataCacheValid] = false;
-            oArray[cleanDataCacheValid] = false;
             oArray[configureElementListeners]();
         }else{
             oArray = new ObservableArray(wrappedArray, name, parentName, arrayConverterFunction);
@@ -44,6 +40,7 @@ export default class ObservableArray extends RetainEventDispatcher{
 
     constructor(wrappedArray, name, parentName, arrayConverterFunction) {
         super();
+        this[dataType] = "array";
         this[arrayConverter] = arrayConverterFunction;
         this[arrayParent] = parentName;
         this[arrayName] = name;
@@ -267,6 +264,20 @@ export default class ObservableArray extends RetainEventDispatcher{
         this[sendUpdate](elementR, oldArray);
     }
 
+    setValue(array, elementR) {
+        if(!isArray(array)) {
+            throw new Error("Can't set non array value to array property!");
+        }
+        let oldArray = this[innerArray];
+        this[innerArray] = [];
+        array.forEach((elem, index)=>{
+            elem = this[arrayConverter](elem, this[arrayParent], `${this[arrayName]}[${index}]`);
+            this[innerArray].push(elem);
+        });
+
+        this[sendUpdate](elementR, oldArray);
+    }
+
     merge(elementR, secondArray) {
         let oldArray = this[innerArray];
         let newArray = this[innerArray].slice();
@@ -333,6 +344,7 @@ export default class ObservableArray extends RetainEventDispatcher{
         this[arrayName] = "";
         this[innerArray] = [];
 
+        this[destroy]();
 
         if(this[updateTimeout]) {
             clearTimeout(this[updateTimeout]);

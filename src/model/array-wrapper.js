@@ -1,6 +1,8 @@
-import {context, updateable, modelConstructor, constructorProps} from "./_internals"
-import {isArrayLike, isFunction} from "lodash/lang"
+import {context, updateable, modelConstructor, dateConstructor, constructorProps, dataType} from "./_internals"
+import {arrayGetterMethods as baseArrayGetterMethods, arraySetterMethods as baseArraySetterMethods} from "./array-methods"
+import {isFunction} from "lodash/lang"
 import ModelWrapper from "./model-wrapper"
+import DateWrapper from "./date-wrapper"
 import deepData from "./deep-data"
 
 const innerArray = Symbol("fluxtuateArrayWrapper_innerArray");
@@ -13,14 +15,16 @@ const transformReturn = Symbol("fluxtuateArrayWrapper_transformReturn");
 const defineArrayProperties = Symbol("fluxtuateArrayWrapper_defineArrayProperties");
 const propsListener = Symbol("fluxtuateArrayWrapper_propsListener");
 const propertiesLength = Symbol("fluxtuateArrayWrapper_propertiesLength");
-const arraySetterMethods = ["push", "reverse", "sort", "splice", "unshift", "remove", "clear", "merge"];
-const arrayGetterMethods = ["slice", "indexOf", "map", "compare"];
+
+const arraySetterMethods = baseArraySetterMethods.concat(["remove", "clear", "merge", "setElement", "setValue"]);
+const arrayGetterMethods = baseArrayGetterMethods.concat(["compare", "find", "findIndex", "getElement"]);
 
 export default class ArrayWrapper {
     constructor(wrappedArray, holderContext) {
         this[innerArray] = wrappedArray;
         this[listeners] = [];
         this[modelConstructor] = ModelWrapper;
+        this[dateConstructor] = DateWrapper;
         this[context] = holderContext;
         this[updateable] = false;
         this[constructorProps] = [holderContext];
@@ -29,8 +33,10 @@ export default class ArrayWrapper {
 
         this[transformReturn] = (returnElement) => {
             if(returnElement && isFunction(returnElement.onUpdate)){
-                if(isArrayLike(returnElement)) {
+                if(returnElement[dataType] === "array") {
                     return new (Function.prototype.bind.apply(this.constructor, [this, returnElement, ...this[constructorProps]]));
+                }else if(returnElement[dataType] === "date") {
+                    return new (Function.prototype.bind.apply(this[dateConstructor], [this, returnElement, ...this[constructorProps]]));
                 }else {
                     return new (Function.prototype.bind.apply(this[modelConstructor], [this, returnElement, ...this[constructorProps]]));
                 }
@@ -86,7 +92,7 @@ export default class ArrayWrapper {
                         throw new Error("You are trying to alter a array that is not editable, you must do all data alteration from a command!");
                     }
 
-                    return this[innerArray][methodName].apply(this[innerArray], [this, ...args]);
+                    return this[transformReturn](this[innerArray][methodName].apply(this[innerArray], [this, ...args]));
                 },
                 configurable: false
             })
@@ -96,7 +102,7 @@ export default class ArrayWrapper {
                 value: (...args)=>{
                     this[checkDestroyed]();
 
-                    return this[innerArray][methodName].apply(this[innerArray], args);
+                    return this[transformReturn](this[innerArray][methodName].apply(this[innerArray], args));
                 },
                 configurable: false
             })
@@ -110,18 +116,6 @@ export default class ArrayWrapper {
         this[checkDestroyed]();
 
         return this[innerArray].modelName;
-    }
-
-    getElement(index) {
-        this[checkDestroyed]();
-
-        return this[transformReturn](this[innerArray].getElement(index));
-    }
-
-    setElement(index, value) {
-        this[checkDestroyed]();
-
-        this[innerArray].setElement(this, index, value);
     }
 
     get length() {
@@ -138,18 +132,6 @@ export default class ArrayWrapper {
         }
 
         this[innerArray].setLength(this, value);
-    }
-
-    pop() {
-        return this[transformReturn](this[innerArray].pop());
-    }
-
-    shift() {
-        return this[transformReturn](this[innerArray].shift());
-    }
-
-    find(id) {
-        return this[transformReturn](this[innerArray].find(id));
     }
 
     forEach(callback) {
