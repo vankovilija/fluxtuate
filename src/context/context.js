@@ -482,6 +482,7 @@ export default class Context {
 
     setName(name) {
         this[contextName] = name;
+        return this;
     }
     
     config(configurationClass) {
@@ -647,6 +648,18 @@ export default class Context {
     destroy() {
         if(this[destroyed]) return;
 
+        let confgs = this[configurations].slice();
+        confgs.forEach(config=>{
+            if(isFunction(config.destroy))
+                config.destroy();
+        });
+
+        let pgs = this[plugins].slice();
+        pgs.forEach(plugin=>{
+            if(isFunction(plugin.destroy))
+                plugin.destroy();
+        });
+
         if(this[parent])
             this[parent].removeChild(this);
 
@@ -679,18 +692,6 @@ export default class Context {
         this[contextDispatcher].dispatch("destroyed");
         this[contextDispatcher][eventDestroy]();
         this[contextDispatcher] = undefined;
-
-        let confgs = this[configurations].slice();
-        confgs.forEach(config=>{
-            if(isFunction(config.destroy))
-                config.destroy();
-        });
-
-        let pgs = this[plugins].slice();
-        pgs.forEach(plugin=>{
-            if(isFunction(plugin.destroy))
-                plugin.destroy();
-        });
 
         this[plugins] = [];
         this[destroyed] = true;

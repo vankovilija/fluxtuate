@@ -13,8 +13,6 @@ const dispatchUpdate = Symbol("fluxtuateModelWrapper_dispatchUpdate");
 const updateTimer = Symbol("fluxtuateModelWrapper_updateTimer");
 const setupModelValues = Symbol("fluxtuateModelWrapper_setupModelValues");
 
-
-
 export default class ModelWrapper {
     constructor (wrappedModel, holderContext) {
         wrappedModel[configureDefaultValues]();

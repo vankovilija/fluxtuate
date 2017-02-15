@@ -2,7 +2,7 @@ import getOwnKeys from "../utils/getOwnKeys"
 import forEachPrototype from "../utils/forEachPrototype"
 import {primaryKey, properties, elementResponsible, configureDefaultValues, dataType} from "./_internals"
 import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
-import {destroy} from "../event-dispatcher/_internals"
+import {destroy, sendEvent} from "../event-dispatcher/_internals"
 import {isFunction, isObject} from "lodash/lang"
 import reservedWords from "./reserved"
 import {autobind} from "core-decorators"
@@ -94,6 +94,13 @@ export default class Model extends RetainEventDispatcher {
     constructor(modelName) {
         super();
         this[dataType] = "object";
+        let realSend = this[sendEvent];
+        this[sendEvent] = (eventName, payload, eventMetaData) => {
+            if(payload.data !== this.modelData) {
+                this.setValue(payload.data, payload[elementResponsible]);
+            }
+            realSend(eventName, payload, eventMetaData);
+        };
         this[mName] = modelName;
         this[data] = {};
         this[dataCacheValid] = false;
@@ -208,8 +215,23 @@ export default class Model extends RetainEventDispatcher {
         Object.keys(descr).forEach((key)=> {
             if (reservedWords.indexOf(key) !== -1) return;
 
-            if (descr[key].get) {
-                this[calculatedFields].push(key);
+            if(descr[key].set) {
+                let value;
+                try{
+                    value = this[key];
+                }catch (e){
+                    throw new Error("Setters are not supported in models, use pure functions to update data with logic");
+                }
+
+                this[key] = (...args)=>{
+                    value.apply(this, args);
+                    this[configureDefaultValues]();
+                    this[dispatchUpdate]();
+                }
+            }else {
+                if (descr[key].get) {
+                    this[calculatedFields].push(key);
+                }
             }
         });
 
@@ -239,6 +261,27 @@ export default class Model extends RetainEventDispatcher {
                 this[updateTimeout] = null;
             }, 100);
         }
+    }
+    
+    addProperty(key, type, defaultValue) {
+        if(this[propertiesCache][key]) {
+            throw new Error(`Model already has a property with key ${key}`);
+        }
+        
+        if(reservedWords.indexOf(key) !== -1) {
+            throw new Error(`The key ${key} is a reserved word, you can't add this key to a model!`);
+        }
+        
+        this[propertiesCache][key] = {
+            modelKey: key, convert: type, defaultValue
+        };
+
+        this[configureDefaultValues]();
+        this[dispatchUpdate]();
+    }
+    
+    forceUpdate() {
+        this[dispatchUpdate]();
     }
 
     setKeyValue(modelKey, v, elementR) {

@@ -16,6 +16,13 @@ export default class Command {
                     this[releasePromise].then(()=>{
                         handler();
                     });
+                };
+            }
+        });
+
+        Object.defineProperty(this, "onError", {
+            get() {
+                return (handler)=>{
                     this[releasePromise].caught(()=>{
                         handler();
                     });

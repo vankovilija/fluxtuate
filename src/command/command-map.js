@@ -72,6 +72,11 @@ export default class CommandMap extends EventDispatcher{
             let commandCount = 0;
             let completeCount = 0;
 
+            function errorForCommandOnEvent(command, eventName, payload, commandObject, error){
+                throw new Error(`There was a error while executing command ${command.commandName} on event ${eventName} with payload ${payload}
+                ${error.stack}`);
+            }
+
             function completeCommandForEvent(command, eventName, payload, commandObject){
                 if(commandObject.oneShot){
                     this.unmapEvent(eventName, commandObject.command);
@@ -141,6 +146,7 @@ export default class CommandMap extends EventDispatcher{
                     });
                 }
                 command.onComplete(completeCommandForEvent.bind(this, command, eventName, payload, commandObject));
+                command.onError(errorForCommandOnEvent.bind(this, command, eventName, payload, commandObject));
             };
 
             let processCommandGuard = (eventName, payload, commandObject)=>{
