@@ -1,4 +1,4 @@
-import {isArray, isDate} from "lodash/lang"
+import {isArray, isDate, isFunction} from "lodash/lang"
 
 function processProp(prop, deepDataProperty) {
     if (prop !== null && !isDate(prop)
@@ -17,6 +17,10 @@ export default function deepData(model, deepDataProperty) {
     }
 
     Object.getOwnPropertyNames(o).forEach(function (prop) {
+        if(isFunction(o[prop])) {
+            return;
+        }
+
         if (isArray(o[prop])) {
             let propArray = [];
             o[prop].forEach((propElem)=> {

@@ -78,6 +78,8 @@ export default class Context {
         this[parent] = undefined;
 
         this[executeCommandCallback] = (event, command)=>{
+            if(this.destroyed) return;
+
             this[contextDispatcher].dispatch(event.eventName, command);
         };
 
