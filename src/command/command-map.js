@@ -73,6 +73,12 @@ export default class CommandMap extends EventDispatcher{
             let completeCount = 0;
 
             function errorForCommandOnEvent(command, eventName, payload, commandObject, error){
+                if(commandObject.endings) {
+                    for(let i = 0; i < commandObject.endings.length; i++) {
+                        processCommandGuard(eventName, payload, commandObject.endings[i]);
+                    }
+                }
+
                 throw new Error(`There was a error while executing command ${command.commandName} on event ${eventName} with payload ${payload}
                 ${error.stack}`);
             }
@@ -99,6 +105,12 @@ export default class CommandMap extends EventDispatcher{
                 if(commandObject.commandObjects) {
                     for(let i = 0; i < commandObject.commandObjects.length; i++) {
                         processCommandGuard(eventName, payload, commandObject.commandObjects[i]);
+                    }
+                }
+
+                if(commandObject.endings) {
+                    for(let i = 0; i < commandObject.endings.length; i++) {
+                        processCommandGuard(eventName, payload, commandObject.endings[i]);
                     }
                 }
             }
@@ -186,6 +198,11 @@ export default class CommandMap extends EventDispatcher{
                                 if(commandObject.commandObjects) {
                                     for(let i = 0; i < commandObject.commandObjects.length; i++) {
                                         processCommandGuard(eventName, payload, commandObject.commandObjects[i]);
+                                    }
+                                }
+                                if(commandObject.endings) {
+                                    for(let i = 0; i < commandObject.endings.length; i++) {
+                                        processCommandGuard(eventName, payload, commandObject.endings[i]);
                                     }
                                 }
                                 return;
@@ -359,6 +376,30 @@ export default class CommandMap extends EventDispatcher{
                         commandObject.commandObjects.push(c);
                     }
                     return mapEventReturn(c);
+                },
+                endWith(command, ...commandProps) {
+                    if(!commandObject) {
+                        throw new Error("No command is mapped yet!");
+                    }
+                    let c = self[addCommand](eventName, command, commandProps, false);
+
+                    if(!commandObject.endings) {
+                        commandObject.endings = [];
+                    }
+
+                    let commandIndex = self[eventMap][eventName].commands.indexOf(c);
+                    if(commandIndex !== -1) {
+                        self[eventMap][eventName].commands.splice(commandIndex, 1);
+                    }
+                    if(commandObject.rootCommand) {
+                        c.rootCommand = commandObject.rootCommand;
+                    }else{
+                        c.rootCommand = commandObject;
+                    }
+
+                    commandObject.endings.push(c);
+
+                    return mapEventReturn(commandObject);
                 },
                 once(command, ...commandProps){
                     let c = self[addCommand](eventName, command, commandProps, true);

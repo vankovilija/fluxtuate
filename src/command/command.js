@@ -23,8 +23,8 @@ export default class Command {
         Object.defineProperty(this, "onError", {
             get() {
                 return (handler)=>{
-                    this[releasePromise].caught(()=>{
-                        handler();
+                    this[releasePromise].caught((error)=>{
+                        handler(error);
                     });
                 };
             }

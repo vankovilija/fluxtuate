@@ -8,21 +8,11 @@ import {isString} from "lodash/lang"
 const models = Symbol("fluxtuateStore_models");
 const modelsRetainCount = Symbol("fluxtuateStore_modelCount");
 
-const dispatchUpdate = Symbol("fluxtuateStore_dispatchUpdate");
-const dispatchTimer = Symbol("fluxtuateStore_dispatchTimer");
-
 export default class Store extends RetainEventDispatcher{
     constructor() {
         super();
         this[models] = {};
         this[modelsRetainCount] = {};
-
-        this[dispatchUpdate] = (elementR) => {
-            let payload = {data: this.data, models: this.models};
-            payload[elementResponsible] = elementR;
-            this.dispatch("update", payload);
-            this[dispatchTimer] = undefined;
-        }
     }
 
     merge(store) {
@@ -73,13 +63,9 @@ export default class Store extends RetainEventDispatcher{
                 }
                 let mi = Model.getInstance(modelClass, key);
                 model = {modelInstance: mi, storeWrapper: new ModelWrapper(mi), modelClass: modelClass, context, retainCount: 1};
-                model.listener = model.modelInstance.onUpdate((payload)=>{
-                    self[dispatchUpdate](payload[elementResponsible]);
-                });
+
                 if(!self[models][key]) self[models][key] = [];
                 self[models][key].push(model);
-
-                self[dispatchUpdate](context);
 
                 return model;
             }
@@ -146,8 +132,6 @@ export default class Store extends RetainEventDispatcher{
 
         this[models] = {};
         this[modelsRetainCount] = {};
-
-        this[dispatchUpdate](responsibleElement || this);
     }
 
     setData(modelData) {
