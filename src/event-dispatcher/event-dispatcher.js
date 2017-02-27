@@ -1,11 +1,9 @@
 import invokeFunction from "../utils/invokeFunction"
-import {destroy, pause, resume, eventMap, sendEvent, eventDispatchCallback} from "./_internals"
+import {destroy, pause, resume, eventMap, sendEvent, propagateToParent, propagateToChildren, eventDispatchCallback} from "./_internals"
 
 const isPaused = Symbol("fluxtuateEventDispatcher_isPaused");
 const children = Symbol("fluxtuateEventDispatcher_children");
 const parent = Symbol("fluxtuateEventDispatcher_parent");
-const propagateToParent = Symbol("fluxtuateEventDispatcher_propagateToParent");
-const propagateToChildren = Symbol("fluxtuateEventDispatcher_propagateToChildren");
 
 function sortEvents(event1, event2) {
     if(event1.priority > event2.priority)

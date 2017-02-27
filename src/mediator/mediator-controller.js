@@ -7,6 +7,8 @@ import Model from "../model"
 import MediatorModelWrapper from "./mediator-model-wrapper"
 import ModelWrapper from "../model/model-wrapper"
 import {model} from "../model/_internals"
+import {mapRemoved, viewCreated, viewDestroyed} from "./_internals"
+import {contextMediatorCallback} from "../context/_internals"
 
 const props = Symbol("props");
 const mediator = Symbol("fluxtuateController_mediator");
@@ -14,8 +16,7 @@ const views = Symbol("fluxtuateController_views");
 const createMediator = Symbol("fluxtuateController_createMediator");
 const destroyMediator = Symbol("fluxtuateController_destroyMediator");
 const context = Symbol("fluxtuateController__context");
-import {mapRemoved, viewCreated, viewDestroyed} from "./_internals"
-import {contextMediatorCallback} from "../context/_internals"
+const mediatorsOnView = Symbol("fluxtuateController__context");
 
 function updateMediatorProps(callback, view, newProps) {
     if(callback("updating", this, view, newProps) === false) return false;
@@ -110,6 +111,9 @@ export default class MediatorController {
         };
 
         this[createMediator] = (view, mediatorClass, properties) => {
+            if(view[mediatorsOnView] && view[mediatorsOnView].indexOf(mediatorClass) !== -1) {
+                return;
+            }
             let med;
             if(properties) {
                 let injectedModels = [];
@@ -133,6 +137,10 @@ export default class MediatorController {
             }else{
                 med = new mediatorClass();
             }
+            if(!view[mediatorsOnView]) {
+                view[mediatorsOnView] = [];
+            }
+            view[mediatorsOnView].push(mediatorClass);
             med[dispatchFunction] = this[context].dispatch;
             med.setProps = chainFunctions(updateMediatorProps.bind(med, this[context][contextMediatorCallback], view), view[view[fluxtuateUpdateFunction]], updatedProps.bind(med, this[context][contextMediatorCallback], view));
             med[props] = Object.assign({},view.props);

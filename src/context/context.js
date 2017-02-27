@@ -1,12 +1,15 @@
 import EventDispatcher from "../event-dispatcher"
+import EventDispatcherWrapper from "../event-dispatcher/event-dispatcher-wrapper"
 import chainTwoFunction from "../utils/chainFunctions"
 import ContextModelWrapper from "../model/model-wrapper"
 import ModelWrapper from "../model/model-wrapper"
 import MediatorMap from "../mediator/mediator-map"
 import MediatorModelWrapper from "../mediator/mediator-model-wrapper"
+import MediatorEventDispatcherWrapper from "../mediator/mediator-event-dispatcher-wrapper"
 import Store from "../model/store"
 import CommandMap from "../command/command-map"
 import CommandModelWrapper from "../command/command-model-wrapper"
+import CommandEventDispatcherWrapper from "../command/command-event-dispatcher-wrapper"
 import Injector from "../inject/context-injector"
 import {
     applyContext,
@@ -85,7 +88,7 @@ export default class Context {
 
         this[mediatorMap] = new MediatorMap(this);
         this[commandMap] = new CommandMap(this[eventDispatcher], this);
-        this[injector] = new Injector(this, this[eventDispatcher], this[mediatorMap], this[commandMap]);
+        this[injector] = new Injector(this, this[mediatorMap], this[commandMap]);
 
         this[commandMap].addListener("executeCommand", this[executeCommandCallback]);
         this[commandMap].addListener("completeCommand", this[executeCommandCallback]);
@@ -150,10 +153,13 @@ export default class Context {
                 modelInjections[key] = new MediatorModelWrapper(this[models][key].modelInstance, this, instance);
             }
 
+            let mediatorEventDispatcher = new MediatorEventDispatcherWrapper(this[eventDispatcher], this, instance);
+
             let removeInjections = ()=>{
                 for(let key in modelInjections) {
                     modelInjections[key].destroy();
                 }
+                mediatorEventDispatcher.destroy();
             };
 
             if(instance.destroy) {
@@ -162,7 +168,8 @@ export default class Context {
                 instance.destroy = removeInjections;
             }
 
-            this[injector].inject.apply(this[injector], [instance, modelInjections, this[mediatorInjections], ...injections]);
+            this[injector].inject.apply(this[injector],
+                [instance, modelInjections, this[mediatorInjections], {eventDispatcher: mediatorEventDispatcher}, ...injections]);
             if(this[parent]){
                 this[parent][applyMediatorContext](instance, ...injections);
             }
@@ -200,15 +207,20 @@ export default class Context {
                 modelInjections[key] = new CommandModelWrapper(this[models][key].modelInstance, this, instance);
             }
 
+            let commandEventDispatcher = new CommandEventDispatcherWrapper(this[eventDispatcher], this, instance);
+
             if(instance.then){
                 instance.then(()=>{
                     for(let key in modelInjections) {
                         modelInjections[key].destroy();
                     }
                 });
+
+                commandEventDispatcher.destroy();
             }
 
-            this[injector].inject.apply(this[injector], [instance, modelInjections, this[commandInjections], ...injections]);
+            this[injector].inject.apply(this[injector],
+                [instance, modelInjections, this[commandInjections], {eventDispatcher: commandEventDispatcher}, ...injections]);
             if(this[parent]){
                 this[parent][applyCommandContext](instance, ...injections);
             }
@@ -406,7 +418,14 @@ export default class Context {
 
         this[applyConfiguration] = (Config)=>{
             let config = new Config();
-            this[applyContext](config, this[mediatorInjections], this[commandInjections], {store: this[storeFunction]}, this[parent]?{parentContext: this[parent]}:undefined);
+            this[applyContext](
+                config,
+                this[mediatorInjections],
+                this[commandInjections],
+                {store: this[storeFunction]},
+                this[parent]?{parentContext: this[parent]}:undefined,
+                {eventDispatcher: new EventDispatcherWrapper(this[eventDispatcher], this)}
+            );
             config.configure();
             this[configurations].push(config);
         };
