@@ -34,7 +34,7 @@ export default class Delegator {
             return;
         }
 
-        this[delegates].push(delegate);
+        this[delegates].unshift(delegate);
     }
 
     detachDelegate(delegate){

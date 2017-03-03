@@ -29,16 +29,16 @@ export default class ModelWrapper {
             }
         };
 
-        this[dispatchUpdate] = (callback, payload)=>{
-            if(this[updateTimer]) {
-                clearTimeout(this[updateTimer]);
-                this[updateTimer] = undefined;
+        this[dispatchUpdate] = (callback, timerHolder, payload)=>{
+            if(timerHolder[updateTimer]) {
+                clearTimeout(timerHolder[updateTimer]);
+                timerHolder[updateTimer] = undefined;
             }
 
             if(this[destroyed]) return;
 
-            this[updateTimer] = setTimeout(()=>{
-                this[updateTimer] = undefined;
+            timerHolder[updateTimer] = setTimeout(()=>{
+                timerHolder[updateTimer] = undefined;
                 if(this[destroyed]) return;
                 callback({model: this, data: payload.data, name: payload.name});
             }, 0);
@@ -129,7 +129,7 @@ export default class ModelWrapper {
     onUpdate(callback) {
         this[checkDestroyed]();
 
-        let listener = this[model].onUpdate(this[dispatchUpdate].bind(this, callback));
+        let listener = this[model].onUpdate(this[dispatchUpdate].bind(this, callback, {}));
         let removeFunction = listener.remove;
         let index = this[listeners].length;
         this[listeners].push(listener);

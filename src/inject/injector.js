@@ -141,7 +141,7 @@ export default class Injector {
         }
     }
 
-    inject (instance, ...injections) {
+    inject(instance, ...injections) {
         let defaultInjection = {};
 
         injections.forEach((injection)=>{

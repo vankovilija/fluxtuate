@@ -69,16 +69,18 @@ export default class ArrayWrapper {
             this[propertiesLength] = l + 1;
         };
 
-        this[dispatchUpdate] = (callback, payload)=>{
+        this[dispatchUpdate] = (callback, payload, timerHolder)=>{
             this[defineArrayProperties]();
-            if(this[updateTimer]) {
+            if(timerHolder[updateTimer]) {
                 clearTimeout(this[updateTimer]);
-                this[updateTimer] = undefined;
+                timerHolder[updateTimer] = undefined;
             }
 
             if(this[destroyed]) return;
 
-            this[updateTimer] = setTimeout(()=>{
+            timerHolder[updateTimer] = setTimeout(()=>{
+                timerHolder[updateTimer] = undefined;
+                if(this[destroyed]) return;
                 callback({model: this, data: payload.data, name: payload.name});
             }, 0)
         };
@@ -147,7 +149,7 @@ export default class ArrayWrapper {
     onUpdate(callback) {
         this[checkDestroyed]();
 
-        let listener = this[innerArray].onUpdate(this[dispatchUpdate].bind(this, callback));
+        let listener = this[innerArray].onUpdate(this[dispatchUpdate].bind(this, callback, {}));
         let removeFunction = listener.remove;
         let index = this[listeners].length;
         this[listeners].push(listener);

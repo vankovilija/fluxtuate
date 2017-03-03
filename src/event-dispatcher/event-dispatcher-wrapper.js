@@ -54,8 +54,7 @@ export default class EventDispatcherWrapper {
             target: this
         };
 
-        this[innerDispatcher][propagateToParent](event, payload, eventMetaData);
-        this[innerDispatcher][propagateToChildren](event, payload, eventMetaData);
+        this[innerDispatcher][propagateToParent](event, payload, eventMetaData, this[innerDispatcher]);
 
         this[innerDispatcher][sendEvent](event, payload, eventMetaData);
     }

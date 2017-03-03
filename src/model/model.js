@@ -297,7 +297,7 @@ export default class Model extends RetainEventDispatcher {
         if(key === undefined) return;
 
         let value = v;
-        if(value.modelData) {
+        if(value && value.modelData) {
             value = value.modelData;
         }
 
@@ -328,7 +328,7 @@ export default class Model extends RetainEventDispatcher {
 
     setValue(v, elementResponsible) {
         let value = v;
-        if(value.modelData) {
+        if(value && value.modelData) {
             value = value.modelData;
         }
 

@@ -163,7 +163,7 @@ export default class ObservableArray extends RetainEventDispatcher{
     
     setElement(elementR, id, v) {
         let value = v;
-        if(value.modelData) {
+        if(value && value.modelData) {
             value = value.modelData;
         }
 

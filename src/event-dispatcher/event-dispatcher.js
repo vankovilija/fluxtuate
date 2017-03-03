@@ -39,7 +39,7 @@ export default class EventDispatcher {
             this[eventMap] = {};
         };
 
-        this[propagateToParent] = (event, payload, eventMetaData) => {
+        this[propagateToParent] = (event, payload, eventMetaData, rootDispatcher) => {
             setTimeout(()=>{
                 if(!eventMetaData.shouldPropagate || !eventMetaData.shouldImmediatelyPropagate) {
                     return;
@@ -47,7 +47,9 @@ export default class EventDispatcher {
                 if(this[parent]){
                     this[parent][sendEvent](Object.assign({}, event, {currentTarget: this[parent]}), payload, eventMetaData);
                     if(this[parent])
-                        this[parent][propagateToParent](event, payload, eventMetaData);
+                        this[parent][propagateToParent](event, payload, eventMetaData, rootDispatcher);
+                } else {
+                    rootDispatcher[propagateToChildren](event, payload, eventMetaData);
                 }
             },0);
         };
@@ -128,8 +130,7 @@ export default class EventDispatcher {
             target: this
         };
 
-        this[propagateToParent](event, payload, eventMetaData);
-        this[propagateToChildren](event, payload, eventMetaData);
+        this[propagateToParent](event, payload, eventMetaData, this);
 
         this[sendEvent](event, payload, eventMetaData);
     }
