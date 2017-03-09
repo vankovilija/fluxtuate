@@ -306,7 +306,7 @@ export default class Model extends RetainEventDispatcher {
             props[key].listener = undefined;
         }
         
-        if (this[data][key] && isFunction(this[data][key].setValue)) {
+        if (value !== undefined && this[data][key] && isFunction(this[data][key].setValue)) {
             this[data][key].setValue(value, elementR);
         } else {
             if(this[data][key] && isFunction(this[data][key].destroy)) {

@@ -40,33 +40,29 @@ export default class EventDispatcher {
         };
 
         this[propagateToParent] = (event, payload, eventMetaData, rootDispatcher) => {
-            setTimeout(()=>{
-                if(!eventMetaData.shouldPropagate || !eventMetaData.shouldImmediatelyPropagate) {
-                    return;
-                }
-                if(this[parent]){
-                    this[parent][sendEvent](Object.assign({}, event, {currentTarget: this[parent]}), payload, eventMetaData);
-                    if(this[parent])
-                        this[parent][propagateToParent](event, payload, eventMetaData, rootDispatcher);
-                } else {
-                    rootDispatcher[propagateToChildren](event, payload, eventMetaData);
-                }
-            },0);
+            if(!eventMetaData.shouldPropagate || !eventMetaData.shouldImmediatelyPropagate) {
+                return;
+            }
+            if(this[parent]){
+                this[parent][sendEvent](Object.assign({}, event, {currentTarget: this[parent]}), payload, eventMetaData);
+                if(this[parent])
+                    this[parent][propagateToParent](event, payload, eventMetaData, rootDispatcher);
+            } else {
+                rootDispatcher[propagateToChildren](event, payload, eventMetaData);
+            }
         };
 
         this[propagateToChildren] = (event, payload, eventMetaData) => {
-            setTimeout(()=>{
-                if(this[children] && this[children].length > 0){
-                    for(let i = 0; i < this[children].length; i++){
-                        if(!eventMetaData.shouldPropagate || !eventMetaData.shouldImmediatelyPropagate) {
-                            break;
-                        }
-                        let c = this[children][i];
-                        c[sendEvent](Object.assign({}, event, {currentTarget: c}), payload, eventMetaData);
-                        c[propagateToChildren](event, payload, eventMetaData);
+            if(this[children] && this[children].length > 0){
+                for(let i = 0; i < this[children].length; i++){
+                    if(!eventMetaData.shouldPropagate || !eventMetaData.shouldImmediatelyPropagate) {
+                        break;
                     }
+                    let c = this[children][i];
+                    c[sendEvent](Object.assign({}, event, {currentTarget: c}), payload, eventMetaData);
+                    c[propagateToChildren](event, payload, eventMetaData);
                 }
-            },0);
+            }
         };
 
         this[sendEvent] = (event, payload, eventMetaData) => {
