@@ -21,6 +21,17 @@ const updateTimeout = Symbol("fluxtuateObservableArray_updateTimeout");
 
 const oArrayCache = [];
 
+function configureListener(elem, listener, context) {
+    if(elem && isFunction(elem.addListener)) {
+        listener.elem = elem;
+        listener.listener = elem.addListener("update", (ev, payload)=>{
+            context[sendUpdate](payload[elementResponsible], context[innerArray]);
+        }, 0, false);
+    }else{
+        listener.elem = undefined;
+    }
+}
+
 export default class ObservableArray extends RetainEventDispatcher{
     static getInstance(wrappedArray, name, parentName, arrayConverterFunction) {
         let oArray;
@@ -52,11 +63,42 @@ export default class ObservableArray extends RetainEventDispatcher{
         this[configureElementListeners] = (oldData = []) => {
             if(oldData === this[innerArray]) return;
 
-            let removedElementsCount = 0;
+            let newElementListeners = [];
+
+            this[innerArray].forEach((elem, newIndex)=>{
+                let oldIndex = oldData.indexOf(elem);
+
+                let oldElementListener;
+
+                if(oldIndex !== -1) oldElementListener = this[elementListeners][oldIndex];
+
+                if(!oldElementListener) {
+                    newElementListeners[newIndex] = {};
+                    configureListener(elem, newElementListeners[newIndex], this);
+                    return "continue";
+                }else{
+                    newElementListeners[newIndex] = oldElementListener;
+                }
+
+                if(newElementListeners[newIndex].elem !== elem) {
+                    if(newElementListeners[newIndex].elem) {
+                        if (isFunction(newElementListeners[newIndex].elem.destroy)) {
+                            newElementListeners[newIndex].elem.destroy();
+                        }
+                    }
+                    if(newElementListeners[newIndex].listener){
+                        newElementListeners[newIndex].listener.remove();
+                        newElementListeners[newIndex].listener = undefined;
+                    }
+                    configureListener(elem, newElementListeners[newIndex], this);
+                }
+            });
+
             oldData.forEach((elem, index)=>{
                 if(this[innerArray].indexOf(elem) === -1) {
-                    let lObject = this[elementListeners].splice(index - removedElementsCount, 1)[0];
-                    removedElementsCount ++;
+                    if(elem === undefined) return "continue";
+
+                    let lObject = this[elementListeners][index];
 
                     if(elem.destroy) {
                         elem.destroy();
@@ -68,33 +110,7 @@ export default class ObservableArray extends RetainEventDispatcher{
                 }
             });
 
-            this[innerArray].forEach((elem, index)=>{
-                if(oldData.indexOf(elem) !== -1) return;
-
-                if(!this[elementListeners][index]){
-                    this[elementListeners][index] = {};
-                }
-
-                if(this[elementListeners][index].elem !== elem) {
-                    if(this[elementListeners][index].elem) {
-                        if (isFunction(this[elementListeners][index].elem.destroy)) {
-                            this[elementListeners][index].elem.destroy();
-                        }
-                    }
-                    if(this[elementListeners][index].listener){
-                        this[elementListeners][index].listener.remove();
-                        this[elementListeners][index].listener = undefined;
-                    }
-                    if(elem && isFunction(elem.addListener)) {
-                        this[elementListeners][index].elem = elem;
-                        this[elementListeners][index].listener = elem.addListener("update", (ev, payload)=>{
-                            this[sendUpdate](payload[elementResponsible], this[innerArray]);
-                        }, 0, false);
-                    }else{
-                        this[elementListeners][index].elem = undefined;
-                    }
-                }
-            });
+            this[elementListeners] = newElementListeners;
         };
 
         this[sendUpdate] = (elementR, oldData)=>{
