@@ -5,7 +5,7 @@ import ModelWrapper from "./model-wrapper"
 import DateWrapper from "./date-wrapper"
 import deepData from "./deep-data"
 
-const innerArray = Symbol("fluxtuateArrayWrapper_innerArray");
+const observableArray = Symbol("fluxtuateArrayWrapper_observableArray");
 const listeners = Symbol("fluxtuateArrayWrapper_listeners");
 const destroyed = Symbol("fluxtuateArrayWrapper_destroyed");
 const checkDestroyed = Symbol("fluxtuateArrayWrapper_checkDestroyed");
@@ -21,7 +21,7 @@ const arrayGetterMethods = baseArrayGetterMethods.concat(["compare", "find", "fi
 
 export default class ArrayWrapper {
     constructor(wrappedArray, holderContext) {
-        this[innerArray] = wrappedArray;
+        this[observableArray] = wrappedArray;
         this[listeners] = [];
         this[modelConstructor] = ModelWrapper;
         this[dateConstructor] = DateWrapper;
@@ -52,7 +52,7 @@ export default class ArrayWrapper {
         };
 
         this[defineArrayProperties] = () => {
-            let l = this[innerArray].length;
+            let l = this[observableArray].length;
 
             for(let i = this[propertiesLength]; i <= l; i++) {
                 Object.defineProperty(this, i, {
@@ -94,7 +94,7 @@ export default class ArrayWrapper {
                         throw new Error("You are trying to alter a array that is not editable, you must do all data alteration from a command!");
                     }
 
-                    return this[transformReturn](this[innerArray][methodName].apply(this[innerArray], [this, ...args]));
+                    return this[transformReturn](this[observableArray][methodName].apply(this[observableArray], [this, ...args]));
                 },
                 configurable: false
             })
@@ -104,26 +104,26 @@ export default class ArrayWrapper {
                 value: (...args)=>{
                     this[checkDestroyed]();
 
-                    return this[transformReturn](this[innerArray][methodName].apply(this[innerArray], args));
+                    return this[transformReturn](this[observableArray][methodName].apply(this[observableArray], args));
                 },
                 configurable: false
             })
         });
         
-        this[propsListener] = this[innerArray].onUpdate(this[defineArrayProperties]);
+        this[propsListener] = this[observableArray].onUpdate(this[defineArrayProperties]);
         this[defineArrayProperties]();
     }
 
     get modelName() {
         this[checkDestroyed]();
 
-        return this[innerArray].modelName;
+        return this[observableArray].modelName;
     }
 
     get length() {
         this[checkDestroyed]();
 
-        return this[innerArray].length;
+        return this[observableArray].length;
     }
 
     set length(value) {
@@ -133,7 +133,7 @@ export default class ArrayWrapper {
             throw new Error("You are trying to alter a array that is not editable, you must do all data alteration from a command!");
         }
 
-        this[innerArray].setLength(this, value);
+        this[observableArray].setLength(this, value);
     }
 
     forEach(callback) {
@@ -141,7 +141,7 @@ export default class ArrayWrapper {
             throw new Error("You must supply a function to the forEach method of arrays!");
         }
 
-        for(let i = 0; i < this[innerArray].length; i++) {
+        for(let i = 0; i < this[observableArray].length; i++) {
             callback(this.getElement(i), i);
         }
     }
@@ -149,7 +149,7 @@ export default class ArrayWrapper {
     onUpdate(callback) {
         this[checkDestroyed]();
 
-        let listener = this[innerArray].onUpdate(this[dispatchUpdate].bind(this, callback, {}));
+        let listener = this[observableArray].onUpdate(this[dispatchUpdate].bind(this, callback, {}));
         let removeFunction = listener.remove;
         let index = this[listeners].length;
         this[listeners].push(listener);
@@ -163,7 +163,7 @@ export default class ArrayWrapper {
     get modelData() {
         this[checkDestroyed]();
 
-        let wrapper = {data: this[innerArray].slice()};
+        let wrapper = {data: this[observableArray].slice()};
         let deep = deepData(wrapper, "modelData");
         return deep.data;
     }
@@ -171,7 +171,7 @@ export default class ArrayWrapper {
     get cleanData() {
         this[checkDestroyed]();
 
-        let wrapper = {data: this[innerArray].slice()};
+        let wrapper = {data: this[observableArray].slice()};
         let deep = deepData(wrapper, "cleanData");
         return deep.data;
     }

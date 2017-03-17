@@ -29,8 +29,8 @@ function convert(valueType, typeProperty, typeChecks, value, parentName, parentP
     }
     
     if(valueType !== Object){
-        if(value instanceof valueType) return value;
         let el;
+        //TODO: cycle trough inheritance tree to check for update function, will fail if there is a array of type
         if(isFunction(valueType.prototype.update)){
             el = Model.getInstance(valueType, `${parentName}.${parentProperty}`);
             el.update(value);

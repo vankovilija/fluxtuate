@@ -2,7 +2,7 @@ import RetainEventDispatcher from "../event-dispatcher/retain-event-dispatcher"
 import deepData from "./deep-data"
 import {arrayGetterMethods, arraySetterMethods} from "./array-methods"
 import {primaryKey, elementResponsible, dataType} from "./_internals"
-import {isFunction, isArray} from "lodash/lang"
+import {isFunction, isArray, isObject} from "lodash/lang"
 import {destroy} from "../event-dispatcher/_internals"
 
 const innerArray = Symbol("fluxtuateObservableArray_innerArray");
@@ -71,9 +71,6 @@ export default class ObservableArray extends RetainEventDispatcher{
             this[innerArray].forEach((elem, index)=>{
                 if(oldData.indexOf(elem) !== -1) return;
 
-                elem = this[arrayConverter](elem, this[arrayParent], `${this[arrayName]}[${index}]`);
-                this[innerArray][index] = elem;
-
                 if(!this[elementListeners][index]){
                     this[elementListeners][index] = {};
                 }
@@ -123,7 +120,20 @@ export default class ObservableArray extends RetainEventDispatcher{
 
                     let oldData = this[innerArray];
                     this[innerArray] = this[innerArray].slice();
-                    let returnValue = this[innerArray][methodName].apply(this[innerArray], args);
+                    let convertedArgs = args;
+                    if(this[arrayConverter]) {
+                         convertedArgs = args.map((arg)=> {
+                            if(isArray(arg)){
+                                return arg.map((e)=>{
+                                    return this[arrayConverter](e);
+                                });
+                            }else if(isObject(arg)){
+                                return this[arrayConverter](arg);
+                            }
+                            return arg;
+                        });
+                    }
+                    let returnValue = this[innerArray][methodName].apply(this[innerArray], convertedArgs);
                     this[sendUpdate](elementR, oldData);
                     return returnValue;
                 },
