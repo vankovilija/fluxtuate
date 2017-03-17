@@ -281,6 +281,8 @@ export default class ObservableArray extends RetainEventDispatcher{
             newArray.splice(newArray.indexOf(elem), 1);
         }
 
+        this[innerArray] = newArray;
+
         this[sendUpdate](elementR, oldArray);
     }
 
