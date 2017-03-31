@@ -391,7 +391,7 @@ export default class CommandMap extends EventDispatcher{
                         }
                         if(commandObject.rootCommand) {
                             c.rootCommand = commandObject.rootCommand;
-                        }else{
+                        }else if(commandObject && !commandObject.isEnding){
                             c.rootCommand = commandObject;
                         }
 
@@ -423,6 +423,8 @@ export default class CommandMap extends EventDispatcher{
                     }
 
                     rootCommand.endings.push(c);
+
+                    c.isEnding = true;
 
                     return mapEventReturn(c);
                 },
