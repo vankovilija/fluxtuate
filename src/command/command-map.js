@@ -112,18 +112,18 @@ export default class CommandMap extends EventDispatcher{
                     for(let i = 0; i < commandObject.commandObjects.length; i++) {
                         processCommandGuard(eventName, payload, commandObject.commandObjects[i]);
                     }
-                }
+                }else {
+                    let rootCommand;
+                    if (commandObject.rootCommand) {
+                        rootCommand = commandObject.rootCommand;
+                    } else {
+                        rootCommand = commandObject;
+                    }
 
-                let rootCommand;
-                if(commandObject.rootCommand) {
-                    rootCommand = commandObject.rootCommand;
-                }else{
-                    rootCommand = commandObject;
-                }
-
-                if(rootCommand.endings) {
-                    for(let i = 0; i < rootCommand.endings.length; i++) {
-                        processCommandGuard(eventName, payload, rootCommand.endings[i]);
+                    if (rootCommand.endings) {
+                        for (let i = 0; i < rootCommand.endings.length; i++) {
+                            processCommandGuard(eventName, payload, rootCommand.endings[i]);
+                        }
                     }
                 }
             }
@@ -212,18 +212,19 @@ export default class CommandMap extends EventDispatcher{
                                     for(let i = 0; i < commandObject.commandObjects.length; i++) {
                                         processCommandGuard(eventName, payload, commandObject.commandObjects[i]);
                                     }
-                                }
+                                }else {
 
-                                let rootCommand;
-                                if(commandObject.rootCommand) {
-                                    rootCommand = commandObject.rootCommand;
-                                }else{
-                                    rootCommand = commandObject;
-                                }
+                                    let rootCommand;
+                                    if (commandObject.rootCommand) {
+                                        rootCommand = commandObject.rootCommand;
+                                    } else {
+                                        rootCommand = commandObject;
+                                    }
 
-                                if(rootCommand.endings) {
-                                    for(let i = 0; i < rootCommand.endings.length; i++) {
-                                        processCommandGuard(eventName, payload, rootCommand.endings[i]);
+                                    if (rootCommand.endings) {
+                                        for (let i = 0; i < rootCommand.endings.length; i++) {
+                                            processCommandGuard(eventName, payload, rootCommand.endings[i]);
+                                        }
                                     }
                                 }
                                 return;
