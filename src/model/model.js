@@ -333,10 +333,10 @@ export default class Model extends RetainEventDispatcher {
         }
 
         this.clear();
-        this.update(value, elementResponsible);
+        this.update(value, elementResponsible, true);
     }
 
-    update(updateData, elementR) {
+    update(updateData, elementR, resetChildren = false) {
         if (updateData.cleanData) {
             updateData = updateData.cleanData;
         }else if(updateData.modelData) {
@@ -358,8 +358,10 @@ export default class Model extends RetainEventDispatcher {
                 if(potentialKeyValue && potentialKeyValue.modelData) {
                     potentialKeyValue = potentialKeyValue.modelData;
                 }
-                if (this[data][key] && isFunction(this[data][key].update)) {
+                if (this[data][key] && (!resetChildren && isFunction(this[data][key].update))) {
                     this[data][key].update(potentialKeyValue, elementR);
+                } else if(this[data][key] && (resetChildren && isFunction(this[data][key].setValue))){
+                    this[data][key].setValue(potentialKeyValue, elementR);
                 } else {
                     if (isFunction(props[key].convert)) {
                         potentialKeyValue = props[key].convert(potentialKeyValue, this.modelName, key);
