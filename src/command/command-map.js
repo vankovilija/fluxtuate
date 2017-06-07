@@ -104,7 +104,10 @@ export default class CommandMap extends EventDispatcher{
 
                 if(commandObject.events) {
                     for(let i = 0; i < commandObject.events.length; i++) {
-                        ed.dispatch(commandObject.events[i].eventName, commandObject.events[i].payload || commandObject.events[i].payloadProvider(payload));
+                        ed.dispatch(
+                            commandObject.events[i].eventName, commandObject.events[i].payload ||
+                            (commandObject.events[i].payloadProvider ? commandObject.events[i].payloadProvider(payload) : undefined)
+                        );
                     }
                 }
 
