@@ -88,7 +88,8 @@ export default class Context {
         };
 
         this[mediatorMap] = new MediatorMap(this);
-        this[commandMap] = new CommandMap(this[eventDispatcher], this);
+        let commandEventDispatcher = new CommandEventDispatcherWrapper(this[eventDispatcher], this, undefined);
+        this[commandMap] = new CommandMap(commandEventDispatcher, this);
         this[injector] = new Injector(this, this[mediatorMap], this[commandMap]);
 
         this[commandMap].addListener("executeCommand", this[executeCommandCallback]);
