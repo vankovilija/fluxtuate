@@ -10,3 +10,4 @@ export const contextDispatcher = Symbol("fluxtuateContext_dispatcher");
 //callbacks
 export const contextMediatorCallback = Symbol("fluxtuateContext_contextMediatorCallback");
 export const contextCommandCallback = Symbol("fluxtuateContext_contextCommandCallback");
+export const destroy = Symbol("fluxtuateContext_destroy");

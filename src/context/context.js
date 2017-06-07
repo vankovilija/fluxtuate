@@ -19,7 +19,8 @@ import {
     contextMediatorCallback,
     store,
     mediators,
-    contextDispatcher
+    contextDispatcher,
+    destroy
 } from "./_internals"
 import {isFunction} from "lodash/lang"
 import {autobind} from "core-decorators"
@@ -429,6 +430,60 @@ export default class Context {
             config.configure();
             this[configurations].push(config);
         };
+
+        this[destroy] = () => {
+            if(this[destroyed]) return;
+
+            let originalChildren = this[children].slice();
+            let l = originalChildren.length;
+            while(--l > -1) {
+                let c = originalChildren[l];
+                if(isFunction(c[destroy]))
+                    c[destroy]();
+            }
+
+            let confgs = this[configurations].slice();
+            confgs.forEach(config=>{
+                if(isFunction(config.destroy))
+                    config.destroy();
+            });
+
+            let pgs = this[plugins].slice();
+            pgs.forEach(plugin=>{
+                if(isFunction(plugin.destroy))
+                    plugin.destroy();
+            });
+
+            if(this[parent])
+                this[parent].removeChild(this);
+
+            while(this[storeModels].length > 0) {
+                let model = this[store].unmapModelKey(this[storeModels].pop(), this);
+                this[contextDispatcher].dispatch("modelRemoved", {context: this, model: model});
+            }
+
+            for(let key in this[models]){
+                this[models][key].wrapper.destroy();
+            }
+
+            this[contextDispatcher].dispatch("destroying");
+            this[commandMap][commandDestroy]();
+            this[mediatorMap][mediatorDestroy]();
+            this[eventDispatcher][eventDestroy]();
+
+            this[commandMap] = undefined;
+            this[mediatorMap] = undefined;
+            this[eventDispatcher] = undefined;
+
+            this[configured] = false;
+            this[contextDispatcher].dispatch("destroyed");
+            this[contextDispatcher][eventDestroy]();
+            this[contextDispatcher] = undefined;
+
+            this[plugins] = [];
+            this[destroyed] = true;
+            this[parent] = undefined;
+        }
     }
 
     dispatch(eventName, eventPayload) {
@@ -667,55 +722,6 @@ export default class Context {
     }
     
     destroy() {
-        if(this[destroyed]) return;
-
-        let confgs = this[configurations].slice();
-        confgs.forEach(config=>{
-            if(isFunction(config.destroy))
-                config.destroy();
-        });
-
-        let pgs = this[plugins].slice();
-        pgs.forEach(plugin=>{
-            if(isFunction(plugin.destroy))
-                plugin.destroy();
-        });
-
-        if(this[parent])
-            this[parent].removeChild(this);
-
-        let l = this[children].length;
-        while(--l > -1) {
-            let c = this[children][l];
-            if(isFunction(c.destroy))
-                c.destroy();
-        }
-
-        while(this[storeModels].length > 0) {
-            let model = this[store].unmapModelKey(this[storeModels].pop(), this);
-            this[contextDispatcher].dispatch("modelRemoved", {context: this, model: model});
-        }
-
-        for(let key in this[models]){
-            this[models][key].wrapper.destroy();
-        }
-
-        this[contextDispatcher].dispatch("destroying");
-        this[commandMap][commandDestroy]();
-        this[mediatorMap][mediatorDestroy]();
-        this[eventDispatcher][eventDestroy]();
-
-        this[commandMap] = undefined;
-        this[mediatorMap] = undefined;
-        this[eventDispatcher] = undefined;
-
-        this[configured] = false;
-        this[contextDispatcher].dispatch("destroyed");
-        this[contextDispatcher][eventDestroy]();
-        this[contextDispatcher] = undefined;
-
-        this[plugins] = [];
-        this[destroyed] = true;
-        this[parent] = undefined;
+        this[destroy]();
     }
 }
