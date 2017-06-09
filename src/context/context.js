@@ -642,7 +642,9 @@ export default class Context {
     }
 
     start() {
-        this[checkDestroyed]();
+        if(this[destroyed]){
+            return;
+        }
 
         !this[configured] && this[contextDispatcher].dispatch("starting");
 
