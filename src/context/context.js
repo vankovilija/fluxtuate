@@ -402,7 +402,7 @@ export default class Context {
         let self = this;
         this[storeFunction] = {
             forceNewModel(storeName) {
-                let storeNameCount = self[storeNames][storeName] || -1;
+                let storeNameCount = self[storeNames][storeName] !== undefined && self[storeNames][storeName] >= 0 ? self[storeNames][storeName] : -1;
                 storeNameCount++;
                 self[addModelCount](storeName, storeNameCount);
             },
