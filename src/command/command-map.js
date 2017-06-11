@@ -47,7 +47,7 @@ export default class CommandMap extends EventDispatcher{
             }
 
             if(!this[eventMap][eventName]) this[eventMap][eventName] = {
-                listener: this[eventDispatcher].addListener(eventName, this[executeCommandFromEvent]),
+                listener: this[eventDispatcher].capture(eventName, this[executeCommandFromEvent]),
                 commands: []
             };
 
@@ -458,7 +458,7 @@ export default class CommandMap extends EventDispatcher{
                     }
 
                     if(!this[eventMap][eventName]) this[eventMap][eventName] = {
-                        listener: this[eventDispatcher].addListener(eventName, this[executeCommandFromEvent]),
+                        listener: this[eventDispatcher].capture(eventName, this[executeCommandFromEvent]),
                         commands: []
                     };
 

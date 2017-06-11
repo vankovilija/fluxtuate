@@ -55,8 +55,28 @@ export default class EventDispatcherWrapper {
         };
 
         this[innerDispatcher][propagateToParent](event, payload, eventMetaData, this[innerDispatcher]);
+        this[innerDispatcher][sendEvent](event, payload, eventMetaData);
+
+        eventMetaData = {
+            shouldPropagate: true,
+            shouldImmediatelyPropagate: true
+        };
+
+        event = {
+            eventName,
+            capture: true,
+            stopPropagation: function() {
+                eventMetaData.shouldPropagate = false;
+            },
+            stopImmediatePropagation: function() {
+                eventMetaData.shouldImmediatelyPropagate = false;
+            },
+            currentTarget: this[innerDispatcher],
+            target: this
+        };
 
         this[innerDispatcher][sendEvent](event, payload, eventMetaData);
+        this[innerDispatcher][propagateToChildren](event, payload, eventMetaData, this[innerDispatcher]);
     }
     
     get context() {
@@ -78,7 +98,22 @@ export default class EventDispatcherWrapper {
         );
         return result;
     }
-    
+
+    capture(eventName, callbackFunction, priority = 0, oneShot = false) {
+        let result = this[innerDispatcher].capture(eventName, callbackFunction, priority, oneShot);
+        let originalRemove = result.remove;
+        result.remove = ()=>{
+            let index = this[listeners].indexOf(result);
+            if(index !== -1) {
+                this[listeners].splice(index, 1);
+            }
+            return originalRemove();
+        };
+        this[listeners].push(
+            result
+        );
+        return result;
+    }
     
     destroy() {
         while(this[listeners].length > 0) {

@@ -47,12 +47,12 @@ export default class EventDispatcher {
                 this[parent][sendEvent](Object.assign({}, event, {currentTarget: this[parent]}), payload, eventMetaData);
                 if(this[parent])
                     this[parent][propagateToParent](event, payload, eventMetaData, rootDispatcher);
-            } else {
+            } else if(rootDispatcher){
                 rootDispatcher[propagateToChildren](event, payload, eventMetaData);
             }
         };
 
-        this[propagateToChildren] = (event, payload, eventMetaData) => {
+        this[propagateToChildren] = (event, payload, eventMetaData, rootDispatcher) => {
             if(this[children] && this[children].length > 0){
                 for(let i = 0; i < this[children].length; i++){
                     if(!eventMetaData.shouldPropagate || !eventMetaData.shouldImmediatelyPropagate) {
@@ -62,6 +62,10 @@ export default class EventDispatcher {
                     c[sendEvent](Object.assign({}, event, {currentTarget: c}), payload, eventMetaData);
                     c[propagateToChildren](event, payload, eventMetaData);
                 }
+            }
+
+            if(rootDispatcher) {
+                rootDispatcher[propagateToParent](event, payload, eventMetaData);
             }
         };
 
@@ -82,6 +86,9 @@ export default class EventDispatcher {
                     break;
                 }
                 let eventObject = eventList[i];
+                if(eventObject.capture && !event.capture || !eventObject.capture && event.capture) {
+                    continue;
+                }
                 invokeFunction(eventObject.callbackFunction, [event, payload]);
                 if(eventObject.oneShot){
                     eventObject.remove();
@@ -127,8 +134,28 @@ export default class EventDispatcher {
         };
 
         this[propagateToParent](event, payload, eventMetaData, this);
+        this[sendEvent](event, payload, eventMetaData);
+
+        eventMetaData = {
+            shouldPropagate: true,
+            shouldImmediatelyPropagate: true
+        };
+
+        event = {
+            eventName,
+            capture: true,
+            stopPropagation: function() {
+                eventMetaData.shouldPropagate = false;
+            },
+            stopImmediatePropagation: function() {
+                eventMetaData.shouldImmediatelyPropagate = false;
+            },
+            currentTarget: this,
+            target: this
+        };
 
         this[sendEvent](event, payload, eventMetaData);
+        this[propagateToChildren](event, payload, eventMetaData, this);
     }
     
     addListener(eventName, callbackFunction, priority = 0, oneShot = false) {
@@ -150,6 +177,32 @@ export default class EventDispatcher {
 
         this[eventMap][eventName].push(eventObject);
         
+
+        return {
+            remove: eventObject.remove
+        }
+    }
+
+    capture(eventName, callbackFunction, priority = 0, oneShot = false) {
+        if(!this[eventMap][eventName]) this[eventMap][eventName] = [];
+        let self = this;
+
+        let eventObject = {
+            callbackFunction: callbackFunction,
+            oneShot: oneShot,
+            priority: priority,
+            capture: true,
+            remove: function(){
+                let list = self[eventMap][eventName];
+                if(!list) return;
+                let index = list.indexOf(eventObject);
+                if(index === -1) return;
+                list.splice(index, 1);
+            }
+        };
+
+        this[eventMap][eventName].push(eventObject);
+
 
         return {
             remove: eventObject.remove
