@@ -15,6 +15,9 @@ export default function deepData(model, deepDataProperty) {
     if (o[deepDataProperty]) {
         return o[deepDataProperty];
     }
+    if(o.cloneProtected) {
+        return o;
+    }
 
     Object.getOwnPropertyNames(o).forEach(function (prop) {
         if(isFunction(o[prop])) {
