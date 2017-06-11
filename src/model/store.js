@@ -48,17 +48,24 @@ export default class Store extends RetainEventDispatcher{
         }
     }
 
+    useModel(key, context) {
+        let model = this.getModel(key, context);
+        if(model){
+            model.retainCount ++;
+            return model;
+        }
+    }
+
     mapModel(modelClass, context){
         let self = this;
 
         return {
             toKey(key) {
-                let model = self.getModel(key, context);
+                let model = self.useModel(key, context);
                 if(model){
                     if(model.modelClass !== modelClass){
                         throw new Error(`You are trying to swap the model key ${key} with a different model value, model keys are global and must be unique in the context-tree!`);
                     }
-                    model.retainCount ++;
                     return model;
                 }
                 let mi = Model.getInstance(modelClass, key);
@@ -76,9 +83,11 @@ export default class Store extends RetainEventDispatcher{
         let model = this.getModel(key, context);
         if(!model) return;
         model.retainCount--;
+        let isDestroyed = false;
         if(model.retainCount <= 0) {
             model.retainCount = 0;
             if(model) {
+                isDestroyed = true;
                 if(model.modelInstance.destroy)
                     model.modelInstance.destroy();
                 if(model.storeWrapper.destroy)
@@ -90,7 +99,7 @@ export default class Store extends RetainEventDispatcher{
                 delete this[models][key];
             }
         }
-        return model;
+        return Object.assign({}, model, {isDestroyed: isDestroyed});
     }
 
     get models() {

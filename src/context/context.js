@@ -60,6 +60,8 @@ const mediatorInjections = Symbol("fluxtuateContext_mediatorInjections");
 const contextName = Symbol("fluxtuateContext_contextName");
 const executeCommandCallback = Symbol("fluxtuateContext_executeCommandCallback");
 const models = Symbol("fluxtuateContext_models");
+const addModelCount = Symbol("fluxtuateContext_addModelCount");
+const storeNames = Symbol("fluxtuateContext_storeNames");
 
 const globalStore = new Store();
 
@@ -80,6 +82,7 @@ export default class Context {
         this[commandInjections] = {};
         this[mediatorInjections] = {};
         this[parent] = undefined;
+        this[storeNames] = {};
 
         this[executeCommandCallback] = (event, command)=>{
             if(this.destroyed) return;
@@ -328,11 +331,23 @@ export default class Context {
         this[configurations] = [];
         this[configured] = false;
 
+        this[addModelCount] = (storeName, count) => {
+            this[storeNames][storeName] = count;
+            this.children.forEach(c=>{
+                c[addModelCount](storeName, count);
+            });
+        };
+
         this[addParent] = (parentContext) => {
             if (parentContext) {
                 this[parent] = parentContext;
 
                 parentContext[eventDispatcher].addChild(this[eventDispatcher]);
+
+                let storeKeys = Object.keys(parentContext[storeNames]);
+                for(let i = 0; i < storeKeys.length; i++) {
+                    this[addModelCount](storeKeys[i], parentContext[storeNames][storeKeys[i]]);
+                }
 
                 let values = parentContext[injector][globalValues].slice();
                 let pgns = parentContext[globalPlugins].slice();
@@ -386,7 +401,13 @@ export default class Context {
 
         let self = this;
         this[storeFunction] = {
+            forceNewModel(storeName) {
+                let storeNameCount = self[storeNames][storeName] || -1;
+                storeNameCount++;
+                self[addModelCount](storeName, storeNameCount);
+            },
             addModel(modelClass, storeName, injectionKey, description) {
+                let originalStoreName = storeName;
                 if(self[storeModels].indexOf(storeName) !== -1) {
                     throw new Error(`Stores can only be registered once per context, you are trying to register the store ${storeName} twice!`)
                 }
@@ -398,16 +419,70 @@ export default class Context {
                     injectionKey = storeName;
                 }
 
-                let model = self[store].mapModel(modelClass, self).toKey(storeName);
-                self[contextDispatcher].dispatch("modelAdded", {context: self, model: model, modelKey: storeName});
-                self[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
-                self[models][injectionKey] = Object.assign({}, model, {wrapper: new ContextModelWrapper(model.modelInstance)});
+                if(self[storeNames][storeName]) {
+                    storeName = `${storeName}_${self[storeNames][storeName]}`;
+                }
 
-                self[storeModels].push(storeName);
+                let model = self[store].mapModel(modelClass, self).toKey(storeName);
+                self[contextDispatcher].dispatch("modelAdded", {context: self, model: model, modelKey: originalStoreName});
+                self[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
+                let contextModel = new ContextModelWrapper(model.modelInstance, self);
+                self[models][injectionKey] = Object.assign({}, model, {wrapper: contextModel});
+
+                self[storeModels].push(originalStoreName);
+
+                return contextModel;
+            },
+            useModel(storeName, injectionKey, description) {
+                let originalStoreName = storeName;
+                if(self[storeModels].indexOf(storeName) !== -1) {
+                    throw new Error(`Stores can only be registered once per context, you are trying to register the store ${storeName} twice!`)
+                }
+                if(!description) {
+                    description = `A key to get the ${storeName}`
+                }
+
+                if(!injectionKey) {
+                    injectionKey = storeName;
+                }
+
+                if(self[storeNames][storeName]) {
+                    storeName = `${storeName}_${self[storeNames][storeName]}`;
+                }
+
+                let model = self[store].useModel(storeName, self);
+                if(!model) {
+                    throw new Error(`The model ${injectionKey} is not mapped to the store, you need to add this model in a previous context before using it here!`);
+                }
+                self[contextDispatcher].dispatch("modelAdded", {context: self, model: model, modelKey: originalStoreName});
+                self[injectAsDefault](injectionKey, {object: model, property: "modelInstance"}, description, false, "none");
+                let contextModel = new ContextModelWrapper(model.modelInstance, self);
+                self[models][injectionKey] = Object.assign({}, model, {wrapper: contextModel});
+
+                self[storeModels].push(originalStoreName);
+
+                return contextModel;
             },
             removeModel(storeName) {
+                let originalStoreName = storeName;
+                if(self[storeNames][storeName]) {
+                    storeName = `${storeName}_${self[storeNames][storeName]}`;
+                }
+
                 let model = self[store].unmapModelKey(storeName, self);
-                self[contextDispatcher].dispatch("modelRemoved", {context: self, model: model, modelKey: storeName});
+                if(!model) return;
+
+                if(model.isDestroyed) {
+                    let storeCount = self[storeNames][storeName];
+
+                    storeCount --;
+                    if(storeCount < -1) {
+                        storeCount = -1;
+                    }
+
+                    self[addModelCount](originalStoreName, storeCount);
+                }
+                self[contextDispatcher].dispatch("modelRemoved", {context: self, model: model, modelKey: originalStoreName});
             },
             getModel(modelName) {
                 if(!self[models][modelName]){
@@ -459,8 +534,7 @@ export default class Context {
                 this[parent].removeChild(this);
 
             while(this[storeModels].length > 0) {
-                let model = this[store].unmapModelKey(this[storeModels].pop(), this);
-                this[contextDispatcher].dispatch("modelRemoved", {context: this, model: model});
+                this[storeFunction].removeModel(this[storeModels].pop());
             }
 
             for(let key in this[models]){
