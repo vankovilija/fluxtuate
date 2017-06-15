@@ -358,7 +358,12 @@ export default class Model extends RetainEventDispatcher {
                 if(potentialKeyValue && potentialKeyValue.modelData) {
                     potentialKeyValue = potentialKeyValue.modelData;
                 }
-                if (this[data][key] && (!resetChildren && isFunction(this[data][key].update))) {
+                if(potentialKeyValue === undefined) {
+                    if (this[data][key] && isFunction(this[data][key].destroy)) {
+                        this[data][key].destroy();
+                    }
+                    this[data][key] = undefined;
+                } else if (this[data][key] && (!resetChildren && isFunction(this[data][key].update))) {
                     this[data][key].update(potentialKeyValue, elementR);
                 } else if(this[data][key] && (resetChildren && isFunction(this[data][key].setValue))){
                     this[data][key].setValue(potentialKeyValue, elementR);
