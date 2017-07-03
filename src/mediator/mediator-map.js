@@ -27,7 +27,7 @@ export default class MediatorMap {
             if(this[isPuased]) return;
             let viewClassName = viewClass[viewClass[fluxtuateNameProperty]];
             let {mediatorClasses} = this[mediatorMap][viewClassName];
-            this[controllerDelegator].dispatch(viewCreated, view, viewClass, mediatorClasses);
+            this[controller][viewCreated](view, viewClass, mediatorClasses);
         };
         
         this[viewDestroyed] = (view, viewClass, creationContext) => {
@@ -36,7 +36,7 @@ export default class MediatorMap {
             if(!this[mediatorMap][viewClassName]) return;
 
             let {mediatorClasses} = this[mediatorMap][viewClassName];
-            this[controllerDelegator].dispatch(viewDestroyed, view, viewClass, mediatorClasses);
+            this[controller][viewDestroyed](view, viewClass, mediatorClasses);
         };
 
         this[pause] = () => {
@@ -124,7 +124,7 @@ export default class MediatorMap {
         if(mediatorClasses.length === 0)
             view[viewDelegator].detachDelegate(this);
 
-        this[controllerDelegator].dispatch(mapRemoved, view, mediator);
+        this[controller][mapRemoved](view, mediator);
 
         return mediator;
     }
