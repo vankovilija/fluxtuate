@@ -32,6 +32,8 @@ export default class MediatorController {
         this[views] = {};
         this[context] = c;
         this[viewCreated] = (view, viewClass, mediatorClasses) => {
+            if(view[mediator] && view[mediator].length > 0) return;
+
             view[mediator] = [];
             let self = this;
             view[mediate] = function(functionName, ...args) {
