@@ -84,7 +84,7 @@ export default class Store extends RetainEventDispatcher{
         if(!model) return;
         model.retainCount--;
         let isDestroyed = false;
-        if(model.retainCount <= 0) {
+        if(model.retainCount <= 0 || model.context === context) {
             model.retainCount = 0;
             if(model) {
                 isDestroyed = true;

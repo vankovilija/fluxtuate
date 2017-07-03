@@ -60,10 +60,16 @@ const mediatorInjections = Symbol("fluxtuateContext_mediatorInjections");
 const contextName = Symbol("fluxtuateContext_contextName");
 const executeCommandCallback = Symbol("fluxtuateContext_executeCommandCallback");
 const models = Symbol("fluxtuateContext_models");
+const updateChildrenModelInstance = Symbol("fluxtuateContext_updateChildrenModelInstance");
 const addModelCount = Symbol("fluxtuateContext_addModelCount");
 const storeNames = Symbol("fluxtuateContext_storeNames");
 
 const globalStore = new Store();
+
+function getAllParentModels(context) {
+    if(!context.parent) return {};
+    return Object.assign(getAllParentModels(context.parent), context[models]);
+}
 
 @autobind
 export default class Context {
@@ -72,7 +78,7 @@ export default class Context {
         this[destroyed] = false;
         this[contextName] = "";
         this[mediators] = [];
-
+        this[contextDispatcher] = new EventDispatcher();
         this[models] = {};
         this[storeModels] = [];
         this[eventDispatcher] = new EventDispatcher();
@@ -141,8 +147,6 @@ export default class Context {
                 this[injector][globalValues].splice(index, 1);
             }
         };
-
-        this[contextDispatcher] = new EventDispatcher();
 
         this[applyContext] = (instance, ...injections) => {
             this[injector].inject(instance, ...injections);
@@ -351,11 +355,12 @@ export default class Context {
 
                 let values = parentContext[injector][globalValues].slice();
                 let pgns = parentContext[globalPlugins].slice();
-                this[addParentValues](values, pgns, parentContext[injector][getInjectValue], parentContext[injector][defaultValues]);
+                let parentModels = getAllParentModels(parentContext);
+                this[addParentValues](values, pgns, parentContext[injector][getInjectValue], parentContext[injector][defaultValues], parentModels);
             }
         };
 
-        this[addParentValues]= (values, pgns, getFunction, defaultValues) => {
+        this[addParentValues]= (values, pgns, getFunction, defaultValues, parentModels) => {
             values.forEach(key=>{
                 let value = getFunction(key);
                 this[injectAsDefault](key, value, defaultValues[key], true, value[isPropertyInjection]?"property":"value");
@@ -366,9 +371,44 @@ export default class Context {
                 this.plugin(plugin);
             });
 
-            this.children.forEach(c=>{
-                c[addParentValues](values, pgns, getFunction, defaultValues);
+            let modelKeys = Object.keys(parentModels);
+
+            modelKeys.forEach((key)=>{
+                if(
+                    this[models][key] !== undefined &&
+                    this[models][key].modelInstance !== parentModels[key].modelInstance &&
+                    this[models][key].wrapper._modelName === parentModels[key].wrapper._modelName
+                ) {
+                    this[storeFunction].removeModel(key);
+                    this[storeFunction].addModel(key, parentModels[key].modelClass);
+                    this[contextDispatcher].dispatch("changeModel", {
+                        model: parentModels[key].modelInstance
+                    });
+                }
             });
+
+            this.children.forEach(c=>{
+                c[addParentValues](values, pgns, getFunction, defaultValues, parentModels);
+            });
+        };
+
+        this[updateChildrenModelInstance] = (modelKey, modelObject) => {
+            this.children.forEach(c=>{
+                c[updateChildrenModelInstance](modelKey, modelObject);
+            });
+
+            if(modelObject === undefined || this[models][modelKey] === undefined) return;
+
+            if(
+                this[models][modelKey].modelInstance !== modelObject.modelInstance &&
+                this[models][modelKey].wrapper._modelName === modelObject.wrapper._modelName
+            ) {
+                this[storeFunction].removeModel(modelKey);
+                this[storeFunction].addModel(modelKey, modelObject.modelClass);
+                this[contextDispatcher].dispatch("changeModel", {
+                    model: modelObject.modelInstance
+                });
+            }
         };
 
         this[removeParent] = () => {
@@ -406,17 +446,13 @@ export default class Context {
                 storeNameCount++;
                 self[addModelCount](storeName, storeNameCount);
             },
-            addModel(modelClass, storeName, injectionKey, description) {
+            addModel(storeName, modelClass) {
+                let injectionKey = storeName,
+                    description = `A key to get the ${storeName}`;
+
                 let originalStoreName = storeName;
                 if(self[storeModels].indexOf(storeName) !== -1) {
                     throw new Error(`Stores can only be registered once per context, you are trying to register the store ${storeName} twice!`)
-                }
-                if(!description) {
-                    description = `A key to get the ${storeName}`
-                }
-
-                if(!injectionKey) {
-                    injectionKey = storeName;
                 }
 
                 if(self[storeNames][storeName]) {
@@ -430,6 +466,10 @@ export default class Context {
                 self[models][injectionKey] = Object.assign({}, model, {wrapper: contextModel});
 
                 self[storeModels].push(originalStoreName);
+
+                self.children.forEach(c=>{
+                    c[updateChildrenModelInstance](injectionKey, self[models][injectionKey]);
+                });
 
                 return contextModel;
             },

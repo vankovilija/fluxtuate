@@ -1,4 +1,4 @@
-import {context, updateable, modelConstructor, dateConstructor, constructorProps, dataType} from "./_internals"
+import {updateInnerObject, context, updateable, modelConstructor, dateConstructor, constructorProps, dataType} from "./_internals"
 import {arrayGetterMethods as baseArrayGetterMethods, arraySetterMethods as baseArraySetterMethods} from "./array-methods"
 import {isFunction} from "lodash/lang"
 import ModelWrapper from "./model-wrapper"
@@ -48,6 +48,28 @@ export default class ArrayWrapper {
         this[checkDestroyed] = ()=>{
             if(this[destroyed]){
                 throw new Error("You are trying to access a destroyed array.");
+            }
+        };
+
+        this[updateInnerObject] = (wrappedArray) => {
+            this[propertiesLength] = 0;
+
+            this[observableArray] = wrappedArray;
+
+            if(this[propsListener]) {
+                this[propsListener].remove();
+                this[propsListener] = undefined;
+            }
+
+            this[propsListener] = this[observableArray].onUpdate(this[defineArrayProperties]);
+            this[defineArrayProperties]();
+
+            let oldListeners = this[listeners];
+            this[listeners] = [];
+            while(oldListeners.length > 0){
+                let listener = oldListeners.pop();
+                listener.originalRemove();
+                this.onUpdate(listener.callback);
             }
         };
 
@@ -152,6 +174,8 @@ export default class ArrayWrapper {
         let listener = this[observableArray].onUpdate(this[dispatchUpdate].bind(this, callback, {}));
         let removeFunction = listener.remove;
         let index = this[listeners].length;
+        listener.callback = callback;
+        listener.originalRemove = removeFunction;
         this[listeners].push(listener);
         listener.remove = () => {
             this[listeners].splice(index, 1);

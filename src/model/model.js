@@ -458,6 +458,7 @@ export default class Model extends RetainEventDispatcher {
 
     destroy() {
         this.clear(this);
+        this.dispatch("destroy", {data: {}});
         this[dataCacheValid] = false;
         this[cleanCacheValid] = false;
         this[calculatedCacheValid] = false;

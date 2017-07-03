@@ -1,4 +1,4 @@
-import {context, updateable} from "./_internals"
+import {updateInnerObject, context, updateable} from "./_internals"
 import {dateGetterMethods as baseDateGetterMethods, dateSetterMethods as baseDateSetterMethods} from "./date-methods"
 
 const innerDate = Symbol("fluxtuateArrayWrapper_innerDate");
@@ -36,6 +36,18 @@ export default class DateWrapper {
             this[updateTimer] = setTimeout(()=>{
                 callback({model: this, data: payload.data, name: payload.name});
             }, 0)
+        };
+
+        this[updateInnerObject] = (wrappedDate) => {
+            this[innerDate] = wrappedDate;
+
+            let oldListeners = this[listeners];
+            this[listeners] = [];
+            while(oldListeners.length > 0){
+                let listener = oldListeners.pop();
+                listener.originalRemove();
+                this.onUpdate(listener.callback);
+            }
         };
 
         dateSetterMethods.forEach((methodName)=>{
@@ -77,6 +89,8 @@ export default class DateWrapper {
         let removeFunction = listener.remove;
         let index = this[listeners].length;
         this[listeners].push(listener);
+        listener.callback = callback;
+        listener.originalRemove = removeFunction;
         listener.remove = () => {
             this[listeners].splice(index, 1);
             removeFunction();
