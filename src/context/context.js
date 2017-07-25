@@ -24,7 +24,6 @@ import {
 } from "./_internals"
 import {isFunction} from "lodash/lang"
 import {autobind} from "core-decorators"
-
 import {getInjectValue, globalValues, defaultValues, isPropertyInjection} from "../inject/_internals"
 import {destroy as commandDestroy, pause as commandPause, resume as commandResume} from "../command/_internals"
 import {destroy as mediatorDestroy, pause as mediatorPause, resume as mediatorResume} from "../mediator/_internals"
@@ -61,7 +60,7 @@ const contextName = Symbol("fluxtuateContext_contextName");
 const executeCommandCallback = Symbol("fluxtuateContext_executeCommandCallback");
 const models = Symbol("fluxtuateContext_models");
 const updateChildrenModelInstance = Symbol("fluxtuateContext_updateChildrenModelInstance");
-const addModelCount = Symbol("fluxtuateContext_addModelCount");
+const addModelKey = Symbol("fluxtuateContext_addModelCount");
 const storeNames = Symbol("fluxtuateContext_storeNames");
 
 const globalStore = new Store();
@@ -335,10 +334,10 @@ export default class Context {
         this[configurations] = [];
         this[configured] = false;
 
-        this[addModelCount] = (storeName, count) => {
-            this[storeNames][storeName] = count;
+        this[addModelKey] = (storeName, key) => {
+            this[storeNames][storeName] = key;
             this.children.forEach(c=>{
-                c[addModelCount](storeName, count);
+                c[addModelKey](storeName, key);
             });
         };
 
@@ -350,7 +349,7 @@ export default class Context {
 
                 let storeKeys = Object.keys(parentContext[storeNames]);
                 for(let i = 0; i < storeKeys.length; i++) {
-                    this[addModelCount](storeKeys[i], parentContext[storeNames][storeKeys[i]]);
+                    this[addModelKey](storeKeys[i], parentContext[storeNames][storeKeys[i]]);
                 }
 
                 let values = parentContext[injector][globalValues].slice();
@@ -442,9 +441,9 @@ export default class Context {
         let self = this;
         this[storeFunction] = {
             forceNewModel(storeName) {
-                let storeNameCount = self[storeNames][storeName] !== undefined && self[storeNames][storeName] >= 0 ? self[storeNames][storeName] : -1;
-                storeNameCount++;
-                self[addModelCount](storeName, storeNameCount);
+                let storeNameKey = self[storeNames][storeName] !== undefined && self[storeNames][storeName] >= 0 ? self[storeNames][storeName] : -1;
+                storeNameKey = GUID.generateGUID();
+                self[addModelKey](storeName, storeNameKey);
             },
             addModel(storeName, modelClass) {
                 let injectionKey = storeName,
@@ -513,14 +512,7 @@ export default class Context {
                 if(!model) return;
 
                 if(model.isDestroyed) {
-                    let storeCount = self[storeNames][storeName];
-
-                    storeCount --;
-                    if(storeCount < -1) {
-                        storeCount = -1;
-                    }
-
-                    self[addModelCount](originalStoreName, storeCount);
+                    self[addModelKey](originalStoreName, undefined);
                 }
                 self[contextDispatcher].dispatch("modelRemoved", {context: self, model: model, modelKey: originalStoreName});
             },
