@@ -375,12 +375,14 @@ export default class Model extends RetainEventDispatcher {
                     modelKey = props[key].modelKey;
                     if (
                         this[data][key] !== undefined &&
+                        this[data][key] !== null &&
                         isFunction(this[data][key].merge) &&
                         potentialKeyValue !== undefined &&
+                        potentialKeyValue !== null &&
                         isFunction(potentialKeyValue.merge)
                     ) {
                         this[data][key].merge(elementR, potentialKeyValue);
-                    } else if(potentialKeyValue !== undefined){
+                    } else if(potentialKeyValue !== undefined && potentialKeyValue !== null){
                         if(this[data][key] && isFunction(this[data][key].destroy)) {
                             this[data][key].destroy();
                         }
