@@ -508,13 +508,18 @@ export default class Context {
                     storeName = `${storeName}_${self[storeNames][storeName]}`;
                 }
 
+                let index = self[storeModels].indexOf(originalStoreName);
+                if(index !== -1) {
+                    self[storeModels].splice(index, 1);
+                }
+
+                self[contextDispatcher].dispatch("modelRemoved", {context: self, model: model, modelKey: originalStoreName});
                 let model = self[store].unmapModelKey(storeName, self);
                 if(!model) return;
 
                 if(model.isDestroyed) {
                     self[addModelKey](originalStoreName, undefined);
                 }
-                self[contextDispatcher].dispatch("modelRemoved", {context: self, model: model, modelKey: originalStoreName});
             },
             getModel(modelName) {
                 if(!self[models][modelName]){
