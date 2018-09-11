@@ -1,3 +1,5 @@
+##This project is no longer supported
+
 #FLUXTUATE README
 
 A javascript library that handles complex data transactions for large-scale applications designed in a flux-like pattern, heavily inspired by [robot-legs](http://www.robotlegs.org/).
