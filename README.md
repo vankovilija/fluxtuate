@@ -1,28 +1,28 @@
-##This project is no longer supported
+## This project is no longer supported
 
-#FLUXTUATE README
+# FLUXTUATE README
 
 A javascript library that handles complex data transactions for large-scale applications designed in a flux-like pattern, heavily inspired by [robot-legs](http://www.robotlegs.org/).
 
-##Instalation:
+## Instalation:
 
 `npm install fluxtuate --save`
 
-##View layer enablers:
+## View layer enablers:
 
 [Fluxtuate-React](https://github.com/vankovilija/fluxtuate-react)
 
-##Plugins:
+## Plugins:
 
 [Fluxtuate-Router](https://github.com/vankovilija/fluxtuate-router)
 
 [Fluxtuate-tools-plugin](https://github.com/vankovilija/fluxtuate-tools-plugin)
 
-##Dev tools:
+## Dev tools:
 
 [Fluxtuate-react-tools](https://github.com/vankovilija/fluxtuate-react-tools)
 
-##Example
+## Example
 
 [Fluxtuate todo](https://github.com/vankovilija/fluxtuate-todo-demo)
 
